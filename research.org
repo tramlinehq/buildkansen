@@ -1,0 +1,43 @@
+* gha flow
+  - create a github app
+  - main server listening to events from repos from app from webhook, listening to workflow_job events
+  - server logs queued job request
+  - create a [[(https://docs.github.com/en/rest/actions/self-hosted-runners?apiVersion=2022-11-28#create-a-registration-token-for-a-repository)][token]] & launch a new vm using tart
+  - ssh into vm, start vm with above token
+  - wait for the runner to pick up the job
+* v1
+  host: serve loop
+  host: run-queue to pick up run requests
+  host: N guest vms
+  host: pop from run-queue
+  host: active-vms: N
+  host: pick any active VM: N-1: vm1
+  host: fetch token, ssh vm1, run script for runner
+  github: job1: completed
+  host: ssh vm1: stop runner, deregister token
+  host: active-vms: N
+
+  #+ATTR_HTML: :width 10
+  [[./rough.png]]
+
+
+|                    | ongoing | ongoing (prod)   | upcoming |
+|--------------------+---------+------------------+----------|
+| create hotfix      | t       | f                | t        |
+| create hotfix(new) | t       | t (kill ongoing) | t        |
+
+
+|                  | review | release | create hotfix? |y
+|------------------+--------+---------+----------------|
+| finished (1.0.0) | -      | -       |                |
+| ongoing (1.1.0)  | t      | f       | t = for 1.0.0  |y
+| upcoming (1.2.0) | t      | f       |                |
+|------------------+--------+---------+----------------|
+| finished (1.0.0) | -      | -       |                |
+| ongoing (1.1.0)  | -      | t       | t = for 1.0.0  |
+| upcoming (1.2.0) | t      | f       |                |
+|------------------+--------+---------+----------------|
+| finished (1.1.0) | -      | -       | t = for 1.1.0  |
+| ongoing (1.2.0)  | -      | t       |                |
+| no upcoming      |        |         |                |
+|------------------+--------+---------+----------------|
