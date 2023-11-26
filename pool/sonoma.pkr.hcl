@@ -1,7 +1,7 @@
 packer {
   required_plugins {
     tart = {
-      version = ">= 0.5.3"
+      version = ">= 1.2.0"
       source  = "github.com/cirruslabs/tart"
     }
   }
@@ -9,16 +9,21 @@ packer {
 
 variable "ipsw" {
   type = string
-  default = "latest"
+  default = "https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-86430/DBE44960-58A6-4715-948B-D64F33F769BD/UniversalMac_14.1_23B74_Restore.ipsw"
+}
+
+variable "vm_name" {
+  type = string
+  default = "sonoma-vanilla"
 }
 
 source "tart-cli" "tart" {
   # You can find macOS IPSW URLs on various websites like https://ipsw.me/
   # and https://www.theiphonewiki.com/wiki/Beta_Firmware/Mac/13.x
   from_ipsw    = "${var.ipsw}"
-  vm_name      = "base"
+  vm_name      = "${var.vm_name}"
   cpu_count    = 4
-  memory_gb    = 8
+  memory_gb    = 4
   disk_size_gb = 40
   ssh_password = "runner"
   ssh_username = "runner"
@@ -27,9 +32,9 @@ source "tart-cli" "tart" {
     # hello, hola, bonjour, etc.
     "<wait60s><spacebar>",
     # Language
-    "<wait30s><enter>",
+    "<wait30s>english<enter>",
     # Select Your Country and Region
-    "<wait30s>canada<leftShiftOn><tab><leftShiftOff><spacebar>",
+    "<wait30s>united states<leftShiftOn><tab><leftShiftOff><spacebar>",
     # Written and Spoken Languages
     "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
     # Accessibility
@@ -47,13 +52,13 @@ source "tart-cli" "tart" {
     # I have read and agree to the macOS Software License Agreement
     "<wait10s><tab><spacebar>",
     # Create a Computer Account
-    "<wait10s>runner<tab><tab>runner<tab>runner<tab><tab><tab><spacebar>",
+    "<wait10s>admin<tab><tab>admin<tab>admin<tab><tab><tab><spacebar>",
     # Enable Location Services
-    "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
+    "<wait30s><leftShiftOn><tab><leftShiftOff><spacebar>",
     # Are you sure you don't want to use Location Services?
     "<wait10s><tab><spacebar>",
     # Select Your Time Zone
-    "<wait10s><tab>montreal<enter><leftShiftOn><tab><leftShiftOff><spacebar>",
+    "<wait10s><tab>UTC<enter><leftShiftOn><tab><leftShiftOff><spacebar>",
     # Analytics
     "<wait10s><leftShiftOn><tab><leftShiftOff><spacebar>",
     # Screen Time
@@ -69,9 +74,9 @@ source "tart-cli" "tart" {
     # Navigate to "Sharing"
     "<wait10s><leftAltOn>f<leftAltOff>sharing<enter>",
     # Navigate to "Screen Sharing" and enable it
-    "<wait10s><tab><down><spacebar>",
+    "<wait10s><tab><tab><tab><tab><tab><spacebar>",
     # Navigate to "Remote Login" and enable it
-    "<wait10s><tab><tab><tab><tab><tab><tab><spacebar>",
+    "<wait10s><tab><tab><tab><tab><tab><tab><tab><tab><tab><tab><tab><tab><spacebar>",
     # Open "Remote Login" details
     "<wait10s><tab><spacebar>",
     # Enable "Full Disk Access"
@@ -87,37 +92,40 @@ source "tart-cli" "tart" {
   create_grace_time = "30s"
 }
 
+
 build {
   sources = ["source.tart-cli.tart"]
 
   provisioner "shell" {
     inline = [
       // Enable passwordless sudo
-      "echo runner | sudo -S sh -c \"echo 'runner ALL=(ALL) NOPASSWD: ALL' | EDITOR=tee visudo /etc/sudoers.d/admin-nopasswd\"",
-
+      "echo admin | sudo -S sh -c \"mkdir -p /etc/sudoers.d/; echo 'admin ALL=(ALL) NOPASSWD: ALL' | EDITOR=tee visudo /etc/sudoers.d/admin-nopasswd\"",
       // Enable auto-login
+      //
       // See https://github.com/xfreebird/kcpassword for details.
-      "echo '00000000: 0ffc 3c4d b7ce ddea a3b9 1f0a' | sudo xxd -r - /etc/kcpassword",
-      "sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser runner",
-
+      "echo '00000000: 1ced 3f4a bcbc ba2c caca 4e82' | sudo xxd -r - /etc/kcpassword",
+      "sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser admin",
       // Disable screensaver at login screen
       "sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime 0",
-
+      // Disable screensaver for admin user
+      "defaults -currentHost write com.apple.screensaver idleTime 0",
       // Prevent the VM from sleeping
       "sudo systemsetup -setdisplaysleep Off",
       "sudo systemsetup -setsleep Off",
       "sudo systemsetup -setcomputersleep Off",
-
       // Launch Safari to populate the defaults
       "/Applications/Safari.app/Contents/MacOS/Safari &",
       "sleep 30",
       "kill -9 %1",
-
+      // Enable Safari's remote automation and "Develop" menu
+      "sudo safaridriver --enable",
+      "defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true",
+      "defaults write com.apple.Safari IncludeDevelopMenu -bool true",
       // Disable screen lock
-      "sysadminctl -screenLock off -password runner",
-
-      // Disable Spotlight
-      "sudo mdutil -a -i off",
+      //
+      // Note that this only works if the user is logged-in,
+      // i.e. not on login screen.
+      "sysadminctl -screenLock off -password admin",
     ]
   }
 }
