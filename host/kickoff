@@ -1,0 +1,85 @@
+#!/bin/bash
+
+LOGFILE=runner.log
+RUNNER_NAME=Runner
+
+vm_username=""
+vm_ip_address=""
+github_runner_registration_token=""
+github_runner_label=""
+github_runner_url=""
+ssh_key=""
+
+function show_usage {
+  echo "Usage: $0 <flags>"
+  echo "  -u: Specify VM username"
+  echo "  -i: Specify VM IP address"
+  echo "  -s: Specify SSH key"
+  echo "  -t: Specify GitHub registration token for runner"
+  echo "  -l: Specify GitHub runner label"
+  echo "  -r: Specify GitHub repo url / runner url"
+  echo "  -h: Show this help message"
+}
+
+while getopts "u:i:s:t:l:r::h" opt; do
+  case $opt in
+    u)
+      vm_username="$OPTARG"
+      ;;
+    i)
+      vm_ip_address="$OPTARG"
+      ;;
+    s)
+      ssh_key="~/.ssh/$OPTARG"
+      ;;
+    t)
+      github_runner_registration_token="$OPTARG"
+      ;;
+    l)
+      github_runner_label="$OPTARG"
+      ;;
+    r)
+      github_runner_url="$OPTARG"
+      ;;
+    h)
+      show_usage
+      exit 0
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG"
+      show_usage
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      show_usage
+      exit 1
+      ;;
+  esac
+done
+
+function log_output {
+	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
+	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >>$LOGFILE
+}
+
+function stream_output {
+	while read -r line; do
+		log_output "$line"
+	done
+}
+
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+trap "log_output \"[HOST] 🚦 Stopping runner script\"; exit 1" SIGINT
+
+log_output "[HOST] 💤 Waiting for SSH to be available on VM"
+until [ "$(ssh -q -i "$ssh_key" -o ConnectTimeout=2 -o StrictHostKeyChecking=no -oBatchMode=yes "$vm_username@$vm_ip_address" pwd)" ]; do
+  sleep 1
+done
+
+log_output "[HOST] 🔨 Configuring runner on VM"
+ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "./actions-runner/config.sh --url $github_runner_url --token $github_runner_registration_token --ephemeral --name $RUNNER_NAME --labels $github_runner_label --unattended --replace" >/dev/null
+
+log_output "[HOST] 🏃 Starting runner on VM"
+ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output
