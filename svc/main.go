@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,9 +9,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
+	ginSession "github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	goGithub "github.com/google/go-github/v57/github"
 	"github.com/gorilla/sessions"
 	"github.com/joho/godotenv"
 	"github.com/markbates/goth"
@@ -23,19 +27,21 @@ import (
 )
 
 const (
-	appPort         = ":8081"
-	certFilePath    = "./config/certs/localhost.pem"
-	certKeyFilePath = "./config/certs/localhost-key.pem"
+	appPort           = ":8081"
+	certFilePath      = "./config/certs/localhost.pem"
+	certKeyFilePath   = "./config/certs/localhost-key.pem"
+	authorizedUserKey = "AUTHORIZED_USER_ID"
 )
 
 var (
 	appEnv                       string
 	dbName                       string
+	sessionName                  string
+	sessionSecret                string
 	githubAppUrl                 string
-	githubAppId                  string
+	githubAppId                  int64
 	githubClientID               string
 	githubClientSecret           string
-	githubSessionSecret          string
 	githubAuthRedirectUrl        string
 	githubAppRedirectUrl         string
 	githubAppInstallationBaseUrl string
@@ -44,7 +50,7 @@ var (
 )
 
 type User struct {
-	Id            string `gorm:"primary_key"`
+	Id            int64 `gorm:"primary_key"`
 	Name          string
 	Email         string    `gorm:"type:varchar(100);unique_index"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
@@ -54,12 +60,12 @@ type User struct {
 }
 
 type Installation struct {
-	Id               string `gorm:"primary_key"`
+	Id               int64 `gorm:"primary_key"`
 	AccountType      string
-	AccountID        string
+	AccountID        int64
 	AccountLogin     string
 	AccountAvatarUrl string
-	UserId           string
+	UserId           int64
 	User             User         `gorm:"foreignKey:UserId;references:Id"`
 	Repositories     []Repository `gorm:"foreignKey:InstallationId"`
 	CreatedAt        time.Time    `gorm:"autoCreateTime"`
@@ -68,11 +74,11 @@ type Installation struct {
 }
 
 type Repository struct {
-	Id             string `gorm:"primary_key"`
+	Id             int64 `gorm:"primary_key"`
 	Name           string
 	FullName       string
 	Private        bool
-	InstallationId string
+	InstallationId int64
 	Installation   Installation `gorm:"foreignKey:InstallationId;references:Id"`
 	CreatedAt      time.Time    `gorm:"autoCreateTime"`
 	UpdatedAt      time.Time    `gorm:"autoUpdateTime"`
@@ -80,7 +86,7 @@ type Repository struct {
 }
 
 type GithubInstallationResponseRepository struct {
-	ID       int    `json:"id"`
+	ID       int64  `json:"id"`
 	Name     string `json:"name"`
 	FullName string `json:"full_name"`
 	Private  bool   `json:"private"`
@@ -88,13 +94,13 @@ type GithubInstallationResponseRepository struct {
 
 type GithubInstallationResponseAccount struct {
 	Login     string `json:"login"`
-	ID        int    `json:"id"`
+	ID        int64  `json:"id"`
 	AvatarURL string `json:"avatar_url"`
 	Type      string `json:"type"`
 }
 
 type GithubInstallationResponseInstallation struct {
-	ID        int                               `json:"id"`
+	ID        int64                             `json:"id"`
 	Account   GithubInstallationResponseAccount `json:"account"`
 	CreatedAt time.Time                         `json:"created_at"`
 	UpdatedAt time.Time                         `json:"updated_at"`
@@ -102,7 +108,7 @@ type GithubInstallationResponseInstallation struct {
 
 type GithubInstallationResponseSender struct {
 	Login string `json:"login"`
-	ID    int    `json:"id"`
+	ID    int64  `json:"id"`
 	Type  string `json:"type"`
 }
 
@@ -122,9 +128,10 @@ func initEnv() {
 
 	appEnv = os.Getenv("ENV")
 	dbName = os.Getenv("APP_NAME")
-	githubSessionSecret = os.Getenv("GITHUB_SESSION_SECRET")
+	sessionName = os.Getenv("APP_NAME")
+	sessionSecret = os.Getenv("SESSION_SECRET")
 	githubAppUrl = os.Getenv("GITHUB_APP_URL")
-	githubAppId = os.Getenv("GITHUB_APP_ID")
+	githubAppId, _ = strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
 	githubClientID = os.Getenv("GITHUB_CLIENT_ID")
 	githubClientSecret = os.Getenv("GITHUB_CLIENT_SECRET")
 	githubAuthRedirectUrl = os.Getenv("GITHUB_AUTH_REDIRECT_URL")
@@ -148,7 +155,7 @@ func initDB(name string) *gorm.DB {
 }
 
 func initGithubAuth() {
-	gothic.Store = sessions.NewCookieStore([]byte(githubSessionSecret))
+	gothic.Store = sessions.NewCookieStore([]byte(sessionSecret))
 	goth.UseProviders(
 		github.New(githubClientID, githubClientSecret, githubAuthRedirectUrl),
 	)
@@ -164,6 +171,8 @@ func tapProviderParam(provider string) gin.HandlerFunc {
 
 func initServer() {
 	r := gin.Default()
+	r.Use(ginSession.Sessions(sessionName, cookie.NewStore([]byte(sessionSecret))))
+
 	r.GET("/", handleHome)
 	r.GET("/github/auth", tapProviderParam("github"), handleGithubAuth)
 	r.GET("/github/auth/register", tapProviderParam("github"), handleGithubAuthCallback)
@@ -197,7 +206,8 @@ func handleGithubAuthCallback(c *gin.Context) {
 		return
 	}
 
-	u := User{Id: user.UserID, Name: user.Name, Email: user.Email}
+	uId, _ := strconv.ParseInt(user.UserID, 10, 64)
+	u := User{Id: uId, Name: user.Name, Email: user.Email}
 	result := db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
@@ -210,6 +220,10 @@ func handleGithubAuthCallback(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "user already exists"})
 		return
 	}
+
+	session := ginSession.Default(c)
+	session.Set(authorizedUserKey, uId)
+	session.Save()
 
 	c.Redirect(http.StatusFound, githubInstallationUrl())
 }
@@ -242,65 +256,33 @@ func handleGithubAppCallback(c *gin.Context) {
 	fmt.Println(string(body))
 
 	queryParams := c.Request.URL.Query()
-	value := queryParams.Get("installation_id")
-	fmt.Println(value)
+	installationId, err := strconv.ParseInt(queryParams.Get("installation_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse installation id"})
+		return
+	}
+
+	var jwtClient *goGithub.Client
+	var client *goGithub.Client
+	jwtClient, client, _ = InitGithubClients(installationId)
+	installation, _, _ := jwtClient.Apps.GetInstallation(context.Background(), installationId)
+	repos, _, _ := client.Apps.ListRepos(context.Background(), nil)
+	session := ginSession.Default(c)
+	updateInstallation(session.Get(authorizedUserKey).(int64), installation, repos)
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
-func handleHome(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "you are home"})
-}
-
-func handleGithubHook(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
-		return
-	}
-
-	var response GithubInstallationResponse
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		fmt.Println("Error:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse request body"})
-		return
-	}
-
-	fmt.Println("Received GitHub App webhook event:")
-	fmt.Println(string(body))
-
-	if response.Action == "created" {
-		err = updateInstallation(response, c)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		}
-	} else {
-		fmt.Printf("Unhandled webhook event for app: %s", response.Action)
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
-}
-
-func updateInstallation(response GithubInstallationResponse, c *gin.Context) error {
-	fmt.Println("Received GitHub App webhook event: created, handling it")
-
-	var user User
-
-	if err := db.First(&user, "id = ?", fmt.Sprint(response.Sender.ID)).Error; err != nil {
-		return errors.New("failed to find a registered user for this installation")
-	}
-
+func updateInstallation(userId int64, ghInstallation *goGithub.Installation, ghRepos *goGithub.ListRepositories) error {
 	tx := db.Begin()
 
 	installation := Installation{
-		Id:               fmt.Sprint(response.Installation.ID),
-		AccountType:      response.Installation.Account.Type,
-		AccountID:        fmt.Sprint(response.Installation.Account.ID),
-		AccountLogin:     response.Installation.Account.Login,
-		AccountAvatarUrl: response.Installation.Account.AvatarURL,
-		UserId:           user.Id,
+		Id:               *ghInstallation.ID,
+		AccountType:      *ghInstallation.Account.Type,
+		AccountID:        *ghInstallation.Account.ID,
+		AccountLogin:     *ghInstallation.Account.Login,
+		AccountAvatarUrl: *ghInstallation.Account.AvatarURL,
+		UserId:           userId,
 	}
 	result := tx.Create(&installation)
 
@@ -309,12 +291,12 @@ func updateInstallation(response GithubInstallationResponse, c *gin.Context) err
 		return errors.New("failed to save the installation")
 	}
 
-	for _, repo := range response.Repositories {
+	for _, repo := range ghRepos.Repositories {
 		repository := Repository{
-			Id:             fmt.Sprint(repo.ID),
-			Name:           repo.Name,
-			FullName:       repo.FullName,
-			Private:        repo.Private,
+			Id:             *repo.ID,
+			Name:           *repo.Name,
+			FullName:       *repo.FullName,
+			Private:        *repo.Private,
 			InstallationId: installation.Id,
 		}
 
@@ -329,6 +311,41 @@ func updateInstallation(response GithubInstallationResponse, c *gin.Context) err
 	tx.Commit()
 
 	return nil
+}
+
+func handleHome(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"message": "you are home"})
+}
+
+func handleGithubHook(c *gin.Context) {
+	// body, err := io.ReadAll(c.Request.Body)
+
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
+	// 	return
+	// }
+
+	// var response GithubInstallationResponse
+	// err = json.Unmarshal(body, &response)
+	// if err != nil {
+	// 	fmt.Println("Error:", err)
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse request body"})
+	// 	return
+	// }
+
+	// fmt.Println("Received GitHub App webhook event:")
+	// fmt.Println(string(body))
+
+	// if response.Action == "created" {
+	// 	err = updateInstallation(response, c)
+	// 	if err != nil {
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 	}
+	// } else {
+	// 	fmt.Printf("Unhandled webhook event for app: %s", response.Action)
+	// }
+
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
 func main() {
