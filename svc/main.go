@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"strconv"
 	"time"
 
@@ -31,6 +32,9 @@ const (
 	certFilePath      = "./config/certs/localhost.pem"
 	certKeyFilePath   = "./config/certs/localhost-key.pem"
 	authorizedUserKey = "AUTHORIZED_USER_ID"
+	kickOffScript     = "../host/kickoff"
+	vmUsername        = "admin"
+	vmIPAddress       = "192.168.64.6"
 )
 
 var (
@@ -85,38 +89,64 @@ type Repository struct {
 	DeletedAt      time.Time
 }
 
-type GithubInstallationResponseRepository struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	FullName string `json:"full_name"`
-	Private  bool   `json:"private"`
+type GithubActionsWorkflowWebhookEvent struct {
+	Action       string `json:"action"`
+	Installation struct {
+		ID      int64 `json:"id"`
+		Account struct {
+			Login     string `json:"login"`
+			ID        int64  `json:"id"`
+			AvatarURL string `json:"avatar_url"`
+			Type      string `json:"type"`
+		} `json:"account"`
+		CreatedAt time.Time `json:"created_at"`
+		UpdatedAt time.Time `json:"updated_at"`
+	} `json:"installation"`
+	Sender struct {
+		Login string `json:"login"`
+		ID    int64  `json:"id"`
+		Type  string `json:"type"`
+	} `json:"sender"`
+	Repositories []struct {
+		ID       int64  `json:"id"`
+		Name     string `json:"name"`
+		FullName string `json:"full_name"`
+		Private  bool   `json:"private"`
+	} `json:"repositories"`
+	WorkflowJob struct {
+		ID              int64       `json:"id"`
+		RunId           int64       `json:"run_id"`
+		WorkflowName    string      `json:"workflow_name"`
+		Status          string      `json:"status"`
+		Conclusion      string      `json:"conclusion"`
+		CreatedAt       time.Time   `json:"created_at"`
+		StartedAt       time.Time   `json:"started_at"`
+		CompletedAt     interface{} `json:"completed_at"`
+		Labels          []string    `json:"labels"`
+		RunnerId        interface{} `json:"runner_id"`
+		RunnerName      interface{} `json:"runner_name"`
+		RunnerGroupId   interface{} `json:"runner_group_id"`
+		RunnerGroupName interface{} `json:"runner_group_name"`
+	} `json:"workflow_job"`
+	Repository struct {
+		ID               int64  `json:"id"`
+		DefaultBranch    string `json:"default_branch"`
+		CustomProperties struct {
+		} `json:"custom_properties"`
+	} `json:"repository"`
+	Organization struct {
+		Login string `json:"login"`
+		ID    int64  `json:"id"`
+	} `json:"organization"`
 }
 
-type GithubInstallationResponseAccount struct {
-	Login     string `json:"login"`
-	ID        int64  `json:"id"`
-	AvatarURL string `json:"avatar_url"`
-	Type      string `json:"type"`
-}
-
-type GithubInstallationResponseInstallation struct {
-	ID        int64                             `json:"id"`
-	Account   GithubInstallationResponseAccount `json:"account"`
-	CreatedAt time.Time                         `json:"created_at"`
-	UpdatedAt time.Time                         `json:"updated_at"`
-}
-
-type GithubInstallationResponseSender struct {
-	Login string `json:"login"`
-	ID    int64  `json:"id"`
-	Type  string `json:"type"`
-}
-
-type GithubInstallationResponse struct {
-	Installation GithubInstallationResponseInstallation `json:"installation"`
-	Repositories []GithubInstallationResponseRepository `json:"repositories"`
-	Sender       GithubInstallationResponseSender       `json:"sender"`
-	Action       string                                 `json:"action"`
+type Resource struct {
+	VMUsername        string
+	VMIPAddress       string
+	SSHKeyPath        string
+	GitHubToken       string
+	GitHubRunnerLabel string
+	RepoURL           string
 }
 
 func initEnv() {
@@ -147,9 +177,15 @@ func initDB(name string) *gorm.DB {
 		panic(err)
 	}
 
-	db.AutoMigrate(&User{})
-	db.AutoMigrate(&Installation{})
-	db.AutoMigrate(&Repository{})
+	if db.AutoMigrate(&User{}) != nil {
+		panic("couldn't migrate User table")
+	}
+	if db.AutoMigrate(&Installation{}) != nil {
+		panic("couldn't migrate Installation table")
+	}
+	if db.AutoMigrate(&Repository{}) != nil {
+		panic("couldn't migrate Repository table")
+	}
 
 	return db
 }
@@ -171,7 +207,10 @@ func tapProviderParam(provider string) gin.HandlerFunc {
 
 func initServer() {
 	r := gin.Default()
+
 	r.Use(ginSession.Sessions(sessionName, cookie.NewStore([]byte(sessionSecret))))
+	r.Static("/assets", "./assets")
+	r.LoadHTMLGlob("views/*")
 
 	r.GET("/", handleHome)
 	r.GET("/github/auth", tapProviderParam("github"), handleGithubAuth)
@@ -246,14 +285,7 @@ func githubInstallationUrl() string {
 }
 
 func handleGithubAppCallback(c *gin.Context) {
-	body, err := io.ReadAll(c.Request.Body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
-		return
-	}
-
 	fmt.Println("Received GitHub App callback:")
-	fmt.Println(string(body))
 
 	queryParams := c.Request.URL.Query()
 	installationId, err := strconv.ParseInt(queryParams.Get("installation_id"), 10, 64)
@@ -265,12 +297,16 @@ func handleGithubAppCallback(c *gin.Context) {
 	var jwtClient *goGithub.Client
 	var client *goGithub.Client
 	jwtClient, client, _ = InitGithubClients(installationId)
-	installation, _, _ := jwtClient.Apps.GetInstallation(context.Background(), installationId)
-	repos, _, _ := client.Apps.ListRepos(context.Background(), nil)
+	installation, _, _ := getInstallation(c, jwtClient, installationId)
+	repos, _, _ := getInstallationRepos(c, client)
 	session := ginSession.Default(c)
-	updateInstallation(session.Get(authorizedUserKey).(int64), installation, repos)
+	err = updateInstallation(session.Get(authorizedUserKey).(int64), installation, repos)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
+	c.Redirect(http.StatusFound, "/")
 }
 
 func updateInstallation(userId int64, ghInstallation *goGithub.Installation, ghRepos *goGithub.ListRepositories) error {
@@ -314,38 +350,140 @@ func updateInstallation(userId int64, ghInstallation *goGithub.Installation, ghR
 }
 
 func handleHome(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"message": "you are home"})
+	user, err := getUserFromSession(c)
+	/*	localSession := ginSession.Default(c)
+		localSession.Save()
+	*/
+
+	if err != nil {
+		c.HTML(http.StatusOK, "index.html", gin.H{})
+	} else {
+		c.HTML(http.StatusOK, "index.html", gin.H{"user": user})
+	}
 }
 
 func handleGithubHook(c *gin.Context) {
-	// body, err := io.ReadAll(c.Request.Body)
+	body, err := io.ReadAll(c.Request.Body)
 
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
-	// 	return
-	// }
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read request body"})
+		return
+	}
 
-	// var response GithubInstallationResponse
-	// err = json.Unmarshal(body, &response)
-	// if err != nil {
-	// 	fmt.Println("Error:", err)
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse request body"})
-	// 	return
-	// }
+	var response GithubActionsWorkflowWebhookEvent
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Println("Error:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse request body"})
+		return
+	}
 
-	// fmt.Println("Received GitHub App webhook event:")
-	// fmt.Println(string(body))
+	installationId := response.Installation.ID
 
-	// if response.Action == "created" {
-	// 	err = updateInstallation(response, c)
-	// 	if err != nil {
-	// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-	// 	}
-	// } else {
-	// 	fmt.Printf("Unhandled webhook event for app: %s", response.Action)
-	// }
+	if response.WorkflowJob.ID != 0 {
+		fmt.Println("Received a workflow job event")
 
+		if response.Action == "queued" {
+			_, err := findEntity(response.Organization.ID, "account_id", Installation{})
+			if err != nil {
+				fmt.Println("could not find an installation for this webhook")
+				return
+			}
+			repo, err := findEntity(response.Repository.ID, "id", Repository{})
+			if err != nil {
+				fmt.Println("could not find a repository for this webhook")
+				return
+			}
+
+			_, client, _ := InitGithubClients(installationId)
+			token, _, err := getActionsRegistrationToken(c, client, response.Organization.Login, repo.(Repository).Name)
+
+			if err != nil {
+				fmt.Println("could not get registration token: ", err.Error())
+				return
+			}
+
+			fmt.Println(*token.Token)
+
+			macosVm := Resource{
+				VMUsername:        vmUsername,
+				VMIPAddress:       vmIPAddress,
+				SSHKeyPath:        "id_rsa_bullet",
+				GitHubToken:       *token.Token,
+				GitHubRunnerLabel: "tramline-runner",
+				RepoURL:           "https://github.com/tramlinehq/dump",
+			}
+
+			args := []string{
+				"-u", macosVm.VMUsername,
+				"-i", macosVm.VMIPAddress,
+				"-s", macosVm.SSHKeyPath,
+				"-t", macosVm.GitHubToken,
+				"-l", macosVm.GitHubRunnerLabel,
+				"-r", macosVm.RepoURL,
+			}
+
+			cmd := exec.Command(kickOffScript, args...)
+			err = cmd.Run()
+
+			if err != nil {
+				fmt.Println("Error:", err)
+			}
+
+			fmt.Println("kick'd off the kickoff script!")
+		}
+	} else if installationId != 0 && response.Installation.Account.ID != 0 {
+		fmt.Println("Received an installation event")
+	} else {
+		fmt.Println("Received a webhook, don't know how to handle rn")
+	}
+
+	fmt.Printf("Received GitHub App webhook event: %s", response.Action)
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+type Entity interface {
+	Installation | Repository | User
+}
+
+func findEntity[U Entity](value int64, by string, model U) (interface{}, error) {
+	condition := by + " = ?"
+	result := db.Where(condition, value).First(&model)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return model, nil
+}
+
+func getUserFromSession(c *gin.Context) (interface{}, error) {
+	localSession := ginSession.Default(c)
+	uId := localSession.Get(authorizedUserKey)
+
+	if uId == nil {
+		return nil, fmt.Errorf("no user found")
+	}
+
+	result, err := findEntity(uId.(int64), "id", User{})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func getUserFromSessionMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, err := getUserFromSession(c)
+		if err != nil {
+			c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("no user found"))
+			return
+		}
+
+		c.Set("user", user)
+		c.Next()
+	}
 }
 
 func main() {

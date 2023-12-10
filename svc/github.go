@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -29,4 +30,16 @@ func InitGithubClients(InstallationId int64) (*github.Client, *github.Client, er
 	client := github.NewClient(&http.Client{Transport: itr})
 
 	return jwtClient, client, err
+}
+
+func getInstallation(c context.Context, client *github.Client, installationId int64) (*github.Installation, *github.Response, error) {
+	return client.Apps.GetInstallation(c, installationId)
+}
+
+func getInstallationRepos(c context.Context, client *github.Client) (*github.ListRepositories, *github.Response, error) {
+	return client.Apps.ListRepos(c, nil)
+}
+
+func getActionsRegistrationToken(c context.Context, client *github.Client, owner, repo string) (*github.RegistrationToken, *github.Response, error) {
+	return client.Actions.CreateRegistrationToken(c, owner, repo)
 }
