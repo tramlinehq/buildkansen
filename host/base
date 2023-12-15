@@ -1,0 +1,17 @@
+#!/bin/bash
+
+LOGFILE=runner.log
+RUNNER_NAME=Runner
+
+function log_output {
+	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
+	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >>$LOGFILE
+}
+
+function stream_output {
+	while read -r line; do
+		log_output "$line"
+	done
+}
+
+eval "$(/opt/homebrew/bin/brew shellenv)"

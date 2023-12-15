@@ -1,7 +1,6 @@
 #!/bin/bash
 
-LOGFILE=runner.log
-RUNNER_NAME=Runner
+source base
 
 vm_username=""
 vm_ip_address=""
@@ -58,28 +57,15 @@ while getopts "u:i:s:t:l:r::h" opt; do
   esac
 done
 
-function log_output {
-	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
-	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >>$LOGFILE
-}
+trap "log_output \"[OWNER] 🚦 Stopping github.runner.kickoff script\"; exit 1" SIGINT
 
-function stream_output {
-	while read -r line; do
-		log_output "$line"
-	done
-}
-
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
-trap "log_output \"[HOST] 🚦 Stopping runner script\"; exit 1" SIGINT
-
-log_output "[HOST] 💤 Waiting for SSH to be available on VM"
+log_output "[MA] 💤 Waiting for SSH to be available on VM"
 until [ "$(ssh -q -i "$ssh_key" -o ConnectTimeout=2 -o StrictHostKeyChecking=no -oBatchMode=yes "$vm_username@$vm_ip_address" pwd)" ]; do
   sleep 1
 done
 
-log_output "[HOST] 🔨 Configuring runner on VM"
+log_output "[OWNER] 🔨 Configuring runner on VM"
 ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "./actions-runner/config.sh --url $github_runner_url --token $github_runner_registration_token --ephemeral --name $RUNNER_NAME --labels $github_runner_label --unattended --replace" >/dev/null
 
-log_output "[HOST] 🏃 Starting runner on VM"
+log_output "[OWNER] 🏃 Starting runner on VM"
 ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output

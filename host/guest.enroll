@@ -1,0 +1,7 @@
+#!/bin/bash
+
+source base
+
+trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
+
+curl -s -XPOST -H "Authorization: bearer $GITHUB_API_TOKEN" -H "Accept: application/vnd.github.v3+json" ""
