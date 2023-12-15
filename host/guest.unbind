@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+  echo "Please provide an INSTANCE_NAME to unbind"
+  exit 1
+fi
+instance_name=$1
+
+source base
+trap "log_output \"[OWNER] 🚦 Stopping guest.unbind script\"; exit 1" SIGINT
+
+log_output "[HOST] 💤 Unbinding Guest machine: $instance_name"
+tart stop "$instance_name"
+tart delete "$instance_name"
+log_output "[HOST] 💣 Guest machine: $instance_name successfully unbound!"
+# TODO: publish to buildkansen deregister endpoint

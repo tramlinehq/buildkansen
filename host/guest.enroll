@@ -1,7 +1,89 @@
 #!/bin/bash
 
-source base
+runner_name=""
+runner_labels=""
 
+function show_usage {
+  echo "Usage: $0 <flags>"
+  echo "  -n: Specify Runner name"
+  echo "  -l: Specify labels for runner"
+  echo "  -h: Show this help message"
+}
+
+while getopts "n:l::h" opt; do
+  case $opt in
+    n)
+      runner_name="$OPTARG"
+      ;;
+    l)
+      runner_labels="$OPTARG"
+      ;;
+    h)
+      show_usage
+      exit 0
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG"
+      show_usage
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      show_usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -f .env ]]; then
+  source .env
+  echo "Environment variables loaded from .env file."
+else
+  echo "Error: .env file not found."
+  exit 1
+fi
+
+source base
 trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
 
-curl -s -XPOST -H "Authorization: bearer $GITHUB_API_TOKEN" -H "Accept: application/vnd.github.v3+json" ""
+log_output "[HOST] 💻 Launching macOS VM"
+INSTANCE_NAME="${runner_name}_$(uuidgen)"
+tart clone "$BASE_IMAGE" "$INSTANCE_NAME"
+trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $INSTANCE_NAME; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
+tart run --no-graphics "$INSTANCE_NAME" >/dev/null 2>&1 &
+
+log_output "[HOST] 💤 Waiting for VM to boot"
+VM_IP_ADDRESS=$(tart ip "$INSTANCE_NAME")
+until [[ "$VM_IP_ADDRESS" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
+	VM_IP_ADDRESS=$(tart ip "$INSTANCE_NAME")
+	sleep 1
+done
+
+log_output "[HOST] 💤 Waiting for SSH to be available on the VM"
+until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$VM_IP_ADDRESS" pwd)" ]; do
+  sleep 1
+done
+
+log_output "[HOST] 🙊 Telling buildkansen about the new VM"
+data='{
+  "vm_username": "'"$VM_USERNAME"'",
+  "vm_ip_address": "'"$VM_VM_IP_ADDRESS"'",
+  "github_runner_label": ["'"${runner_labels//,/\",\"}"'"],
+  "ssh_key_path": "'"$VM_SSH_KEY_PATH"'"
+}'
+response=$(curl -s -w "%{http_code}" --output /dev/null \
+                      -XPUT -H "Accept: application/json" \
+                      -H "Content-Type: application/json" \
+                      -d "$data" \
+                      "$INTERNAL_API_URL")
+if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
+  log_output "[HOST] 🚀 Guest machine enrolled and started!"
+  exit 0
+else
+  echo "Error: Request failed with HTTP Status Code: $response"
+  log_output "[HOST] 💣 Failed to enroll guest machine!"
+  tart stop "$INSTANCE_NAME"
+  tart delete "$INSTANCE_NAME"
+  exit 1
+fi
+

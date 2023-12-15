@@ -81,7 +81,7 @@ type Resource struct {
 }
 
 const (
-	kickOffScript = "../host/github.runner.kickoff"
+	kickOffScript = "../host/runner.kickoff"
 	vmUsername    = "admin"
 	vmIPAddress   = "192.168.64.6"
 )
@@ -209,7 +209,7 @@ func GithubHook(c *gin.Context) {
 				fmt.Println("Error:", err)
 			}
 
-			fmt.Println("kicked off the github.runner.kickoff script!")
+			fmt.Println("kicked off the runner.kickoff script!")
 		}
 	} else if installationId != 0 && response.Installation.Account.ID != 0 {
 		fmt.Println("Received an installation event")

@@ -2,6 +2,7 @@
 
 LOGFILE=runner.log
 RUNNER_NAME=Runner
+BASE_IMAGE=ventura-base
 
 function log_output {
 	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"

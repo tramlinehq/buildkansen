@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source base
-
 vm_username=""
 vm_ip_address=""
 github_runner_registration_token=""
@@ -57,6 +55,7 @@ while getopts "u:i:s:t:l:r::h" opt; do
   esac
 done
 
+source base
 trap "log_output \"[OWNER] 🚦 Stopping github.runner.kickoff script\"; exit 1" SIGINT
 
 log_output "[MA] 💤 Waiting for SSH to be available on VM"
@@ -65,7 +64,13 @@ until [ "$(ssh -q -i "$ssh_key" -o ConnectTimeout=2 -o StrictHostKeyChecking=no 
 done
 
 log_output "[OWNER] 🔨 Configuring runner on VM"
-ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "./actions-runner/config.sh --url $github_runner_url --token $github_runner_registration_token --ephemeral --name $RUNNER_NAME --labels $github_runner_label --unattended --replace" >/dev/null
+ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" \
+  "./actions-runner/config.sh --url $github_runner_url \
+  --token $github_runner_registration_token \
+  --ephemeral --name $RUNNER_NAME \
+  --labels $github_runner_label \
+  --unattended --replace" \
+  >/dev/null
 
 log_output "[OWNER] 🏃 Starting runner on VM"
 ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output

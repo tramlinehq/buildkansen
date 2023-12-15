@@ -35,6 +35,7 @@ func Run() {
 	r.GET("/github/auth/register", mw.InjectGithubProvider(), GithubAuthCallback)
 	r.GET("/github/apps/register", mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)
 	r.POST("/github/apps/hook", GithubHook)
+	r.PUT("/v1/api/internal/guest_vm/register", RegisterGuestVM)
 
 	var err error
 

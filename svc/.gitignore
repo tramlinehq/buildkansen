@@ -1,4 +1,5 @@
 .env
+host/.env
 *.db
 app
 config/certs
