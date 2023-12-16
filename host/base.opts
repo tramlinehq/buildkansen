@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if ((OPTIND == 1))
+then
+    echo "No options specified!"
+    show_usage
+    exit 1
+fi
+
+shift $((OPTIND - 1))

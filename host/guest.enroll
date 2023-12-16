@@ -1,39 +1,40 @@
 #!/bin/bash
 
+# ##################################################
+# Print usage and manage opts
+# ##################################################
+
 runner_name=""
 runner_labels=""
 
 function show_usage {
   echo "Usage: $0 <flags>"
-  echo "  -n: Specify Runner name"
-  echo "  -l: Specify labels for runner"
+  echo "  -n: Specify runner name"
+  echo "  -l: Specify GitHub runner label(s)"
   echo "  -h: Show this help message"
 }
 
 while getopts "n:l::h" opt; do
   case $opt in
-    n)
-      runner_name="$OPTARG"
-      ;;
-    l)
-      runner_labels="$OPTARG"
-      ;;
-    h)
-      show_usage
-      exit 0
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG"
-      show_usage
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument."
-      show_usage
-      exit 1
-      ;;
+    n  ) runner_name="$OPTARG";;
+    l  ) runner_labels="$OPTARG";;
+    h  ) show_usage; exit 0;;
+    \? ) echo "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) echo "Option -$OPTARG requires an argument."; show_usage; exit 1;;
+    *  ) echo "Unimplemented option: -$opt" >&2; exit 1;;
   esac
 done
+
+source base.opts
+
+if [ -z "$runner_name" ] || [ -z "$runner_labels" ]; then
+        echo 'Missing -n or -l' >&2
+        exit 1
+fi
+
+# ##################################################
+# Initialize script
+# ##################################################
 
 if [[ -f .env ]]; then
   source .env
@@ -46,8 +47,12 @@ fi
 source base
 trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
 
+# ##################################################
+# Boot up tart VM
+# ##################################################
+
 log_output "[HOST] 💻 Launching macOS VM"
-INSTANCE_NAME="${runner_name}_$(uuidgen)"
+INSTANCE_NAME="${runner_name}-$(uuidgen)"
 tart clone "$BASE_IMAGE" "$INSTANCE_NAME"
 trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $INSTANCE_NAME; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
 tart run --no-graphics "$INSTANCE_NAME" >/dev/null 2>&1 &
@@ -64,15 +69,21 @@ until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChe
   sleep 1
 done
 
+# ##################################################
+# Send updates to Buildkansen
+# ##################################################
+
 log_output "[HOST] 🙊 Telling buildkansen about the new VM"
 data='{
   "vm_username": "'"$VM_USERNAME"'",
-  "vm_ip_address": "'"$VM_VM_IP_ADDRESS"'",
+  "vm_ip_address": "'"$VM_IP_ADDRESS"'",
   "github_runner_label": ["'"${runner_labels//,/\",\"}"'"],
   "ssh_key_path": "'"$VM_SSH_KEY_PATH"'"
 }'
 response=$(curl -s -w "%{http_code}" --output /dev/null \
-                      -XPUT -H "Accept: application/json" \
+                      -XPUT \
+                      -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+                      -H "Accept: application/json" \
                       -H "Content-Type: application/json" \
                       -d "$data" \
                       "$INTERNAL_API_URL")
@@ -86,4 +97,3 @@ else
   tart delete "$INSTANCE_NAME"
   exit 1
 fi
-

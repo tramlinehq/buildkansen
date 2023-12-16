@@ -1,70 +1,57 @@
 #!/bin/bash
 
-vm_username=""
-vm_ip_address=""
+# ##################################################
+# Print usage and manage opts
+# ##################################################
+
 github_runner_registration_token=""
 github_runner_label=""
 github_runner_url=""
-ssh_key=""
 
 function show_usage {
   echo "Usage: $0 <flags>"
-  echo "  -u: Specify VM username"
-  echo "  -i: Specify VM IP address"
-  echo "  -s: Specify SSH key"
   echo "  -t: Specify GitHub registration token for runner"
-  echo "  -l: Specify GitHub runner label"
+  echo "  -l: Specify GitHub runner label(s)"
   echo "  -r: Specify GitHub repo url / runner url"
   echo "  -h: Show this help message"
 }
 
-while getopts "u:i:s:t:l:r::h" opt; do
+while getopts "t:l:r::h" opt; do
   case $opt in
-    u)
-      vm_username="$OPTARG"
-      ;;
-    i)
-      vm_ip_address="$OPTARG"
-      ;;
-    s)
-      ssh_key="~/.ssh/$OPTARG"
-      ;;
-    t)
-      github_runner_registration_token="$OPTARG"
-      ;;
-    l)
-      github_runner_label="$OPTARG"
-      ;;
-    r)
-      github_runner_url="$OPTARG"
-      ;;
-    h)
-      show_usage
-      exit 0
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG"
-      show_usage
-      exit 1
-      ;;
-    :)
-      echo "Option -$OPTARG requires an argument."
-      show_usage
-      exit 1
-      ;;
+    t  ) github_runner_registration_token="$OPTARG";;
+    l  ) github_runner_label="$OPTARG";;
+    r  ) github_runner_url="$OPTARG";;
+    h  ) show_usage; exit 0;;
+    \? ) echo "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) echo "Option -$OPTARG requires an argument."; show_usage; exit 1;;
   esac
 done
+
+source base.opts
+
+if [ -z "$github_runner_registration_token" ] || [ -z "$github_runner_label" ] || [ -z "$github_runner_url" ]; then
+        echo 'Missing -t or -l or -r' >&2
+        exit 1
+fi
+
+# ##################################################
+# Initialize script
+# ##################################################
 
 source base
 trap "log_output \"[OWNER] 🚦 Stopping github.runner.kickoff script\"; exit 1" SIGINT
 
+# ##################################################
+# Start runner on guest VM
+# ##################################################
+
 log_output "[MA] 💤 Waiting for SSH to be available on VM"
-until [ "$(ssh -q -i "$ssh_key" -o ConnectTimeout=2 -o StrictHostKeyChecking=no -oBatchMode=yes "$vm_username@$vm_ip_address" pwd)" ]; do
+until [ "$(ssh -q -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=2 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$VM_IP_ADDRESS" pwd)" ]; do
   sleep 1
 done
 
 log_output "[OWNER] 🔨 Configuring runner on VM"
-ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" \
+ssh -q "$VM_USERNAME@$VM_IP_ADDRESS" -i "$VM_SSH_KEY_PATH" \
   "./actions-runner/config.sh --url $github_runner_url \
   --token $github_runner_registration_token \
   --ephemeral --name $RUNNER_NAME \
@@ -73,4 +60,4 @@ ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" \
   >/dev/null
 
 log_output "[OWNER] 🏃 Starting runner on VM"
-ssh -q "$vm_username@$vm_ip_address" -i "$ssh_key" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output
+ssh -q "$VM_USERNAME@$VM_IP_ADDRESS" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output

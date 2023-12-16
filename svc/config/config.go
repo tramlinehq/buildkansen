@@ -22,6 +22,7 @@ type AppConfig struct {
 	GithubPrivateKeyBase64       string
 	GithubNewInstallationUrl     string
 	AuthorizedUserInSessionKey   string
+	InternalApiToken             string
 }
 
 var C *AppConfig
@@ -46,6 +47,7 @@ func Load() {
 		GithubAppRedirectUrl:         getEnv("GITHUB_APP_REDIRECT_URL", ""),
 		GithubPrivateKeyBase64:       getEnv("GITHUB_PRIVATE_KEY_BASE64", ""),
 		GithubAppInstallationBaseUrl: getEnv("GITHUB_NEW_INSTALLATION_URL", ""),
+		InternalApiToken:             getEnv("INTERNAL_API_TOKEN", ""),
 		AuthorizedUserInSessionKey:   "User ID",
 	}
 }
