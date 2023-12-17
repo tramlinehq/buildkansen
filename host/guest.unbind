@@ -24,6 +24,12 @@ trap "log_output \"[OWNER] 🚦 Stopping guest.unbind script\"; exit 1" SIGINT
 
 log_output "[HOST] 💤 Unbinding Guest machine: $instance_name"
 tart stop "$instance_name"
+stop_exit_code=$?
 tart delete "$instance_name"
-log_output "[HOST] 💣 Guest machine: $instance_name successfully unbound!"
-# TODO: publish to buildkansen deregister endpoint
+delete_exit_code=$?
+if [ $stop_exit_code -eq 0 ] && [ $delete_exit_code -eq 0 ]; then
+  log_output "[HOST] 💣 Guest machine: $instance_name successfully unbound!"
+  # TODO: publish to buildkansen deregister endpoint
+else
+  log_output "[HOST] 🚨 Guest machine: $instance_name could not be found, hence did not unbind."
+fi
