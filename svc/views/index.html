@@ -1,37 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dracula">
 
 <head>
     <meta charset="UTF-8">
-    <title>BuildKansen</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/picnic">
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png"/>
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png"/>
-    <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png"/>
-    <link rel="manifest" href="assets/site.webmanifest"/>
+    <title>BUILDKANSEN</title>
+    <link rel="stylesheet" href="../assets/public.css">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        .intro {
-            max-width: 960px;
-            width: 100%;
-            margin: 100px auto 20px auto;
-        }
-    </style>
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/favicon-16x16.png">
+    <link rel="manifest" href="../assets/site.webmanifest">
+    <link rel="mask-icon" href="../assets/safari-pinned-tab.svg" color="#5bbad5">
+    <meta name="msapplication-TileColor" content="#da532c">
+    <meta name="theme-color" content="#ffffff">
 </head>
-<body class="container">
-<nav>
-    <div class="menu">
-        <a href="/logout">logout</a>
+
+<body>
+
+<nav class="navbar bg-base-100 px-6 py-4">
+    <div class="flex-1 space-x-2">
+        <img src="../assets/buildkansen.png" alt="logo" width="20" height="20"/>
+        <a href="#" class="p-l2 text-xl">BUILDKANSEN</a>
+    </div>
+    <div class="flex-none">
+        <ul class="menu menu-horizontal px-1">
+            <li><a class="link-primary" href="/logout">logout</a></li>
+        </ul>
     </div>
 </nav>
 
-<main class="intro">
-    {{if .user}}
-        Welcome {{.user.Name}}, to the fastest github actions macos runner thingum.
-    {{else}}
-        Welcome to the fastest github actions macos runner thingum.
-        <p><a class="button success" href="/github/auth">Connect GitHub</a></p>
-    {{end}}
+<main class="mb-20 overflow-hidden mx-auto container mt-12">
+    <div class="flex flex-col justify-center items-center text-center space-y-6 card-body">
+        <div class="badge badge-success gap-2 text-gray-800 p-5 mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
+                 viewBox="0 0 1792 1792">
+                <path d="M896 128q209 0 385.5 103t279.5 279.5 103 385.5q0 251-146.5 451.5t-378.5 277.5q-27 5-40-7t-13-30q0-3 .5-76.5t.5-134.5q0-97-52-142 57-6 102.5-18t94-39 81-66.5 53-105 20.5-150.5q0-119-79-206 37-91-8-204-28-9-81 11t-92 44l-38 24q-93-26-192-26t-192 26q-16-11-42.5-27t-83.5-38.5-85-13.5q-45 113-8 204-79 87-79 206 0 85 20.5 150t52.5 105 80.5 67 94 39 102.5 18q-39 36-49 103-21 10-45 15t-57 5-65.5-21.5-55.5-62.5q-19-32-48.5-52t-49.5-24l-20-3q-21 0-29 4.5t-5 11.5 9 14 13 12l7 5q22 10 43.5 38t31.5 51l10 23q13 38 44 61.5t67 30 69.5 7 55.5-3.5l23-4q0 38 .5 88.5t.5 54.5q0 18-13 30t-40 7q-232-77-378.5-277.5t-146.5-451.5q0-209 103-385.5t279.5-279.5 385.5-103zm-477 1103q3-7-7-12-10-3-13 2-3 7 7 12 9 6 13-2zm31 34q7-5-2-16-10-9-16-3-7 5 2 16 10 10 16 3zm30 45q9-7 0-19-8-13-17-6-9 5 0 18t17 7zm42 42q8-8-4-19-12-12-20-3-9 8 4 19 12 12 20 3zm57 25q3-11-13-16-15-4-19 7t13 15q15 6 19-6zm63 5q0-13-17-11-16 0-16 11 0 13 17 11 16 0 16-11zm58-10q-2-11-18-9-16 3-14 15t18 8 14-14z"></path>
+            </svg>
+            Connected
+        </div>
+
+        <p class="text-3xl underline">You're ready go!</p>
+        <p class="text-lg">Simply swap out your current GitHub Actions runners with any of the following, and trigger
+            them as usual.</p>
+        <p class="text-sm text-accent underline">See example.</p>
+
+        <div class="mockup-code">
+            <pre class="text-success"><code>runs-on: tramline-ventura-small</code></pre>
+        </div>
+        <div class="mockup-code">
+            <pre class="text-info"><code>runs-on: tramline-ventura-large</code></pre>
+        </div>
+
+        <div class="divider divider-accent animate-pulse text-accent"></div>
+
+        <div class="flex flex-row space-x-2">
+            {{range .installations}}
+            <div class="badge badge-secondary gap-2 text-gray-800 p-5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     class="lucide lucide-user-round-check">
+                    <path d="M2 21a8 8 0 0 1 13.292-6"/>
+                    <circle cx="10" cy="8" r="5"/>
+                    <path d="m16 19 2 2 4-4"/>
+                </svg>
+                {{.AccountLogin}}
+            </div>
+            {{end}}
+
+            {{range .repositories}}
+            <div class="badge badge-accent gap-2 text-gray-800 p-5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     class="lucide lucide-folder-git-2">
+                    <path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/>
+                    <circle cx="13" cy="12" r="2"/>
+                    <path d="M18 19c-2.8 0-5-2.2-5-5v8"/>
+                    <circle cx="20" cy="19" r="2"/>
+                </svg>
+                {{.FullName}}
+            </div>
+            {{end}}
+        </div>
+    </div>
 </main>
 
 </body>

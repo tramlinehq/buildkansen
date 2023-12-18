@@ -115,7 +115,7 @@ func GithubAuthCallback(c *gin.Context) {
 
 	session := sessions.Default(c)
 	session.Set(config.C.AuthorizedUserInSessionKey, uId)
-	session.Save()
+	_ = session.Save()
 
 	c.Redirect(http.StatusFound, githubInstallationUrl())
 }
@@ -127,6 +127,21 @@ func GithubAppsCallback(c *gin.Context) {
 	installationId, err := strconv.ParseInt(queryParams.Get("installation_id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse installation id"})
+		return
+	}
+
+	userValue, exists := c.Get("user")
+	if exists {
+		user, _ := userValue.(models.User)
+		var installation models.Installation
+		result := db.DB.Where("user_id = ? AND id = ?", user.Id, installationId).First(&installation)
+
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/")
 		return
 	}
 

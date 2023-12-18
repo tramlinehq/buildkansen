@@ -31,6 +31,7 @@ func Run() {
 	r.LoadHTMLGlob("views/*")
 
 	r.GET("/", mw.SetUserFromSessionMiddleware(), HandleHome)
+	r.GET("/logout", HandleLogout)
 	r.GET("/github/auth", mw.InjectGithubProvider(), GithubAuth)
 	r.GET("/github/auth/register", mw.InjectGithubProvider(), GithubAuthCallback)
 	r.GET("/github/apps/register", mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)

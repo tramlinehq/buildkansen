@@ -51,7 +51,7 @@ func SetUserFromSessionMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, err := getUserFromSession(c)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("no user found"))
+			//c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("no user found"))
 			return
 		}
 

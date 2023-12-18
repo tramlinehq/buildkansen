@@ -1,0 +1,11 @@
+default:
+    @just --list
+
+web:
+    go run ./cmd/main.go
+
+css:
+    npm run watch
+
+build:
+    go build -o /out/buildkansen ./cmd/main.go

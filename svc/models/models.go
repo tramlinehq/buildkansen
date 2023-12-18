@@ -67,3 +67,17 @@ func FindEntity[U model](m U, value int64, by string) (interface{}, error) {
 
 	return m, nil
 }
+
+func FetchInstallationsAndRepositories(user *User) ([]Installation, []Repository) {
+	db.DB.Preload("Installations").Preload("Installations.Repositories").First(&user, user.Id)
+
+	repositories := make([]Repository, 0)
+
+	for _, installation := range user.Installations {
+		for _, repository := range installation.Repositories {
+			repositories = append(repositories, repository)
+		}
+	}
+
+	return user.Installations, repositories
+}
