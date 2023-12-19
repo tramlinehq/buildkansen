@@ -7,6 +7,8 @@ packer {
   }
 }
 
+# You can find macOS IPSW URLs on various websites like https://ipsw.me/
+# and https://www.theiphonewiki.com/wiki/Beta_Firmware/Mac/13.x
 variable "ipsw" {
   type = string
   default = "https://updates.cdn-apple.com/2023FallFCS/fullrestores/042-86430/DBE44960-58A6-4715-948B-D64F33F769BD/UniversalMac_14.1_23B74_Restore.ipsw"
@@ -18,15 +20,13 @@ variable "vm_name" {
 }
 
 source "tart-cli" "tart" {
-  # You can find macOS IPSW URLs on various websites like https://ipsw.me/
-  # and https://www.theiphonewiki.com/wiki/Beta_Firmware/Mac/13.x
   from_ipsw    = "${var.ipsw}"
   vm_name      = "${var.vm_name}"
-  cpu_count    = 4
-  memory_gb    = 4
-  disk_size_gb = 40
-  ssh_password = "runner"
-  ssh_username = "runner"
+  cpu_count    = 2
+  memory_gb    = 6
+  disk_size_gb = 60
+  ssh_password = "admin"
+  ssh_username = "admin"
   ssh_timeout  = "120s"
   boot_command = [
     # hello, hola, bonjour, etc.
@@ -92,7 +92,6 @@ source "tart-cli" "tart" {
   create_grace_time = "30s"
 }
 
-
 build {
   sources = ["source.tart-cli.tart"]
 
@@ -110,13 +109,15 @@ build {
       // Disable screensaver for admin user
       "defaults -currentHost write com.apple.screensaver idleTime 0",
       // Prevent the VM from sleeping
-      "sudo systemsetup -setdisplaysleep Off",
-      "sudo systemsetup -setsleep Off",
-      "sudo systemsetup -setcomputersleep Off",
+      "sudo systemsetup -setdisplaysleep Off 2>/dev/null",
+      "sudo systemsetup -setsleep Off 2>/dev/null",
+      "sudo systemsetup -setcomputersleep Off 2>/dev/null",
       // Launch Safari to populate the defaults
       "/Applications/Safari.app/Contents/MacOS/Safari &",
+      "SAFARI_PID=$!",
+      "disown",
       "sleep 30",
-      "kill -9 %1",
+      "kill -9 $SAFARI_PID",
       // Enable Safari's remote automation and "Develop" menu
       "sudo safaridriver --enable",
       "defaults write com.apple.Safari.SandboxBroker ShowDevelopMenu -bool true",

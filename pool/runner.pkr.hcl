@@ -9,10 +9,23 @@ packer {
 
 variable "xcode_version" {
   type = string
+  default = "15.1"
 }
+
+variable "base_vm" {
+  type = string
+  default = "sonoma-vanilla"
+}
+
+variable "vm_name" {
+  type = string
+  default = "runner-sonoma-vanilla"
+}
+
 
 variable "gha_version" {
   type = string
+  default = "2.311.0"
 }
 
 variable "android_sdk_tools_version" {
@@ -21,13 +34,13 @@ variable "android_sdk_tools_version" {
 }
 
 source "tart-cli" "tart" {
-  vm_base_name = "base"
-  vm_name      = "runner"
-  cpu_count    = 1
-  memory_gb    = 1
-  disk_size_gb = 40
-  ssh_password = "runner"
-  ssh_username = "runner"
+  vm_base_name = "${var.base_vm}"
+  vm_name      = "${var.vm_name}"
+  cpu_count    = 2
+  memory_gb    = 6
+  disk_size_gb = 61
+  ssh_password = "admin"
+  ssh_username = "admin"
   ssh_timeout  = "120s"
 }
 
@@ -49,6 +62,11 @@ build {
   # configure brew
   provisioner "shell" {
     inline = [
+      "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+      "echo \"export LANG=en_US.UTF-8\" >> ~/.zprofile",
+      "echo 'eval \"$(/opt/homebrew/bin/brew shellenv)\"' >> ~/.zprofile",
+      "echo \"export HOMEBREW_NO_AUTO_UPDATE=1\" >> ~/.zprofile",
+      "echo \"export HOMEBREW_NO_INSTALL_CLEANUP=1\" >> ~/.zprofile",
       "source ~/.zprofile",
       "brew --version",
       "brew update",
@@ -98,6 +116,30 @@ build {
     ]
   }
 
+  # tooling
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
+      "brew install asdf",
+      "echo \". $(brew --prefix asdf)/libexec/asdf.sh\" >> ~/.zprofile",
+      "source ~/.zprofile",
+      "asdf plugin add nodejs",
+      "asdf plugin add java",
+      "asdf plugin add ruby",
+      "asdf plugin add python",
+    ]
+  }
+
+  # configure ruby
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
+      "asdf install ruby 3.2.2",
+      "asdf global ruby 3.2.2",
+      "gem update --system",
+    ]
+  }
+
   # configure flutter
   provisioner "shell" {
     inline = [
@@ -119,9 +161,8 @@ build {
     inline = [
       "source ~/.zprofile",
       "brew install libimobiledevice ideviceinstaller ios-deploy fastlane carthage",
-      "sudo gem update",
-      "sudo gem install cocoapods",
-      "sudo gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
+      "gem install cocoapods",
+      "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
     ]
   }
 
@@ -131,17 +172,6 @@ build {
       "source ~/.zprofile",
       "brew install graphicsmagick imagemagick",
       "brew install wix/brew/applesimutils"
-    ]
-  }
-
-  # tooling
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "asdf plugin add nodejs",
-      "asdf plugin add java",
-      "asdf plugin add ruby",
-      "asdf plugin add python",
     ]
   }
 
