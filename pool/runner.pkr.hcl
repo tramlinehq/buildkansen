@@ -140,6 +140,16 @@ build {
     ]
   }
 
+  # configure cocoapods
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
+      "brew install libimobiledevice ideviceinstaller ios-deploy fastlane carthage",
+      "gem install cocoapods",
+      "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
+    ]
+  }
+
   # configure flutter
   provisioner "shell" {
     inline = [
@@ -153,16 +163,6 @@ build {
       "flutter doctor --android-licenses",
       "flutter doctor",
       "flutter precache",
-    ]
-  }
-
-  # configure cocoapods
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "brew install libimobiledevice ideviceinstaller ios-deploy fastlane carthage",
-      "gem install cocoapods",
-      "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
     ]
   }
 

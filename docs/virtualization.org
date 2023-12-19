@@ -1,0 +1,8 @@
+* tart
+  - if building on top of a base vm, you cannot have less disk space than the base
+  - booting up a new vm is reasonably fast, < 10s
+  - minimum memory requirement is 4294967296 bytes
+
+** to try:
+   - can I build a big beefy base image with high cpu and high memory and then build smaller runners so I don't have to keep building base again?
+   - can we do 1cpu vm?
