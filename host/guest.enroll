@@ -64,10 +64,16 @@ until [[ "$VM_IP_ADDRESS" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
 	sleep 1
 done
 
+log_output "[HOST] 💻 Copying over our host SSH public key; this requires a password..."
+ssh-copy-id -i "$VM_SSH_KEY_PATH" "$VM_USERNAME@$VM_IP_ADDRESS"
+
 log_output "[HOST] 💤 Waiting for SSH to be available on the VM"
 until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$VM_IP_ADDRESS" pwd)" ]; do
   sleep 1
 done
+
+echo "Skipping Buildkansen part for now..."
+exit 0
 
 # ##################################################
 # Send updates to Buildkansen

@@ -2,11 +2,11 @@
 
 LOGFILE=runner.log
 RUNNER_NAME=Runner
-BASE_IMAGE=ventura-base
+BASE_IMAGE=ghcr.io/tramlinehq/sonoma-runner-sm:latest
 
 function log_output {
 	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
-	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >>$LOGFILE
+	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >> $LOGFILE
 }
 
 function stream_output {
