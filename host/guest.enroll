@@ -72,13 +72,13 @@ until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChe
   sleep 1
 done
 
-echo "Skipping Buildkansen part for now..."
-exit 0
 
 # ##################################################
 # Send updates to Buildkansen
 # ##################################################
 
+echo "Skipping Buildkansen part for now..."
+exit 0
 log_output "[HOST] 🙊 Telling buildkansen about the new VM"
 data='{
   "vm_username": "'"$VM_USERNAME"'",
