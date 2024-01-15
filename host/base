@@ -1,12 +1,18 @@
 #!/bin/bash
 
 LOGFILE=runner.log
+ECHOFILE=echo.log
 RUNNER_NAME=Runner
 BASE_IMAGE=ghcr.io/tramlinehq/sonoma-runner-sm:latest
 
 function log_output {
 	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
 	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >> $LOGFILE
+}
+
+function echo_log {
+	echo "$(date "+%Y/%m/%d %H:%M:%S") $1"
+	echo "$(date "+%Y/%m/%d %H:%M:%S") $1" >> $ECHOFILE
 }
 
 function stream_output {
