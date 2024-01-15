@@ -82,9 +82,9 @@ type Resource struct {
 }
 
 const (
-	kickOffScript = "../host/runner.kickoff"
+	kickOffScript = "./runner.kickoff"
 	vmUsername    = "admin"
-	vmIPAddress   = "192.168.64.47"
+	vmIPAddress   = "192.168.64.21"
 )
 
 func GithubAuth(c *gin.Context) {
@@ -163,7 +163,8 @@ func GithubHook(c *gin.Context) {
 	if response.WorkflowJob.ID != 0 {
 		fmt.Println("Received a workflow job event")
 
-		if response.Action == "queued" {
+		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, "tramline-runner") {
+			fmt.Println("Received a queued workflow job event for tramline runner")
 			_, err := models.FindEntity(models.Installation{}, response.Organization.ID, "account_id")
 			if err != nil {
 				fmt.Println("could not find an installation for this webhook")
@@ -183,8 +184,6 @@ func GithubHook(c *gin.Context) {
 				return
 			}
 
-			fmt.Println(*token.Token)
-
 			macosVm := Resource{
 				VMUsername:        vmUsername,
 				VMIPAddress:       vmIPAddress,
@@ -201,7 +200,10 @@ func GithubHook(c *gin.Context) {
 				"-r", macosVm.RepoURL,
 			}
 
+			fmt.Printf("Executing runner script with following args: %v", args)
+
 			cmd := exec.Command(kickOffScript, args...)
+			cmd.Dir = "../host"
 			err = cmd.Run()
 
 			if err != nil {
@@ -275,4 +277,13 @@ func githubInstallationUrl() string {
 	u.RawQuery = rq.Encode()
 
 	return u.String()
+}
+
+func containsValue(arr []string, value string) bool {
+	for _, element := range arr {
+		if element == value {
+			return true
+		}
+	}
+	return false
 }
