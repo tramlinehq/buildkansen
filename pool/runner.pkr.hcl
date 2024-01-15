@@ -8,23 +8,22 @@ packer {
 }
 
 variable "xcode_version" {
-  type = string
+  type    = string
   default = "15.1"
 }
 
 variable "base_vm" {
-  type = string
+  type    = string
   default = "sonoma-vanilla"
 }
 
 variable "vm_name" {
-  type = string
+  type    = string
   default = "runner-sonoma-vanilla"
 }
 
-
 variable "gha_version" {
-  type = string
+  type    = string
   default = "2.311.0"
 }
 
@@ -36,28 +35,16 @@ variable "android_sdk_tools_version" {
 source "tart-cli" "tart" {
   vm_base_name = "${var.base_vm}"
   vm_name      = "${var.vm_name}"
-  cpu_count    = 2
-  memory_gb    = 6
-  disk_size_gb = 61
-  ssh_password = "admin"
-  ssh_username = "admin"
+  cpu_count    = 4
+  memory_gb    = 4
+  disk_size_gb = 60
+  ssh_password = "runner"
+  ssh_username = "runner"
   ssh_timeout  = "120s"
 }
 
 build {
   sources = ["source.tart-cli.tart"]
-
-  // re-install the actions runner
-  provisioner "shell" {
-    inline = [
-      "cd $HOME",
-      "rm -rf actions-runner",
-      "mkdir actions-runner && cd actions-runner",
-      "curl -O -L https://github.com/actions/runner/releases/download/v${var.gha_version}/actions-runner-osx-arm64-${var.gha_version}.tar.gz",
-      "tar xzf ./actions-runner-osx-arm64-${var.gha_version}.tar.gz",
-      "rm actions-runner-osx-arm64-${var.gha_version}.tar.gz",
-    ]
-  }
 
   # configure brew
   provisioner "shell" {
@@ -71,8 +58,35 @@ build {
       "brew --version",
       "brew update",
       "brew upgrade",
-      "brew install curl wget unzip zip ca-certificates",
+    ]
+  }
+
+  # system tooling
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
+      "brew install curl wget unzip zip ca-certificates jq htop",
+    ]
+  }
+
+  # macOS software update
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
       "sudo softwareupdate --install-rosetta --agree-to-license"
+    ]
+  }
+
+  # install the actions runner
+  provisioner "shell" {
+    inline = [
+      "source ~/.zprofile",
+      "cd $HOME",
+      "rm -rf actions-runner",
+      "mkdir actions-runner && cd actions-runner",
+      "curl -O -L https://github.com/actions/runner/releases/download/v${var.gha_version}/actions-runner-osx-arm64-${var.gha_version}.tar.gz",
+      "tar xzf ./actions-runner-osx-arm64-${var.gha_version}.tar.gz",
+      "rm actions-runner-osx-arm64-${var.gha_version}.tar.gz",
     ]
   }
 
@@ -116,7 +130,7 @@ build {
     ]
   }
 
-  # tooling
+  # dev tooling
   provisioner "shell" {
     inline = [
       "source ~/.zprofile",
@@ -188,13 +202,6 @@ build {
       "sudo add-certificate AppleWWDRCAG3.cer",
       "sudo add-certificate DeveloperIDG2CA.cer",
       "rm add-certificate* *.cer"
-    ]
-  }
-
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "flutter doctor"
     ]
   }
 }

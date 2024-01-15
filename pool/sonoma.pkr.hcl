@@ -22,11 +22,11 @@ variable "vm_name" {
 source "tart-cli" "tart" {
   from_ipsw    = "${var.ipsw}"
   vm_name      = "${var.vm_name}"
-  cpu_count    = 2
-  memory_gb    = 6
-  disk_size_gb = 60
-  ssh_password = "admin"
-  ssh_username = "admin"
+  cpu_count    = 4
+  memory_gb    = 4
+  disk_size_gb = 59
+  ssh_password = "runner"
+  ssh_username = "runner"
   ssh_timeout  = "120s"
   boot_command = [
     # hello, hola, bonjour, etc.
@@ -52,7 +52,7 @@ source "tart-cli" "tart" {
     # I have read and agree to the macOS Software License Agreement
     "<wait10s><tab><spacebar>",
     # Create a Computer Account
-    "<wait10s>admin<tab><tab>admin<tab>admin<tab><tab><tab><spacebar>",
+    "<wait10s>runner<tab><tab>runner<tab>runner<tab><tab><tab><spacebar>",
     # Enable Location Services
     "<wait30s><leftShiftOn><tab><leftShiftOff><spacebar>",
     # Are you sure you don't want to use Location Services?
@@ -98,15 +98,15 @@ build {
   provisioner "shell" {
     inline = [
       // Enable passwordless sudo
-      "echo admin | sudo -S sh -c \"mkdir -p /etc/sudoers.d/; echo 'admin ALL=(ALL) NOPASSWD: ALL' | EDITOR=tee visudo /etc/sudoers.d/admin-nopasswd\"",
+      "echo runner | sudo -S sh -c \"mkdir -p /etc/sudoers.d/; echo 'runner ALL=(ALL) NOPASSWD: ALL' | EDITOR=tee visudo /etc/sudoers.d/runner-nopasswd\"",
       // Enable auto-login
       //
       // See https://github.com/xfreebird/kcpassword for details.
       "echo '00000000: 1ced 3f4a bcbc ba2c caca 4e82' | sudo xxd -r - /etc/kcpassword",
-      "sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser admin",
+      "sudo defaults write /Library/Preferences/com.apple.loginwindow autoLoginUser runner",
       // Disable screensaver at login screen
       "sudo defaults write /Library/Preferences/com.apple.screensaver loginWindowIdleTime 0",
-      // Disable screensaver for admin user
+      // Disable screensaver for runner user
       "defaults -currentHost write com.apple.screensaver idleTime 0",
       // Prevent the VM from sleeping
       "sudo systemsetup -setdisplaysleep Off 2>/dev/null",
@@ -126,7 +126,7 @@ build {
       //
       // Note that this only works if the user is logged-in,
       // i.e. not on login screen.
-      "sysadminctl -screenLock off -password admin",
+      "sysadminctl -screenLock off -password runner",
     ]
   }
 }

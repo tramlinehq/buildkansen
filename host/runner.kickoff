@@ -38,6 +38,14 @@ fi
 # Initialize script
 # ##################################################
 
+if [[ -f .env ]]; then
+  source .env
+  echo "Environment variables loaded from .env file."
+else
+  echo "Error: .env file not found."
+  exit 1
+fi
+
 source base
 trap "log_output \"[OWNER] 🚦 Stopping github.runner.kickoff script\"; exit 1" SIGINT
 
