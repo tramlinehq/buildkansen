@@ -8,16 +8,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
-	"github.com/markbates/goth/gothic"
-	"gorm.io/gorm/clause"
 	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
 	"strconv"
 	"time"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
+	"github.com/markbates/goth/gothic"
+	"gorm.io/gorm/clause"
 )
 
 type GithubActionsWorkflowWebhookEvent struct {
@@ -83,7 +84,7 @@ type Resource struct {
 const (
 	kickOffScript = "../host/runner.kickoff"
 	vmUsername    = "admin"
-	vmIPAddress   = "192.168.64.6"
+	vmIPAddress   = "192.168.64.47"
 )
 
 func GithubAuth(c *gin.Context) {
@@ -130,24 +131,9 @@ func GithubAppsCallback(c *gin.Context) {
 		return
 	}
 
-	userValue, exists := c.Get("user")
-	if exists {
-		user, _ := userValue.(models.User)
-		var installation models.Installation
-		result := db.DB.Where("user_id = ? AND id = ?", user.Id, installationId).First(&installation)
-
-		if result.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
-			return
-		}
-
-		c.Redirect(http.StatusFound, "/")
-		return
-	}
-
 	client, err := githubApi.NewClient(config.C.GithubAppId, installationId, config.C.GithubPrivateKeyBase64)
 	session := sessions.Default(c)
-	err = updateInstallation(session.Get(config.C.AuthorizedUserInSessionKey).(int64), client)
+	err = createInstallation(session.Get(config.C.AuthorizedUserInSessionKey).(int64), client)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
 		return
@@ -209,9 +195,7 @@ func GithubHook(c *gin.Context) {
 			}
 
 			args := []string{
-				"-u", macosVm.VMUsername,
 				"-i", macosVm.VMIPAddress,
-				"-s", macosVm.SSHKeyPath,
 				"-t", macosVm.GitHubToken,
 				"-l", macosVm.GitHubRunnerLabel,
 				"-r", macosVm.RepoURL,
@@ -236,7 +220,7 @@ func GithubHook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
-func updateInstallation(userId int64, client *githubApi.Client) error {
+func createInstallation(userId int64, client *githubApi.Client) error {
 	githubInstallation, _, _ := client.GetInstallation()
 	githubRepositories, _, _ := client.GetInstallationRepos()
 
