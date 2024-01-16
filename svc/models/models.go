@@ -4,6 +4,9 @@ import (
 	"buildkansen/db"
 	"buildkansen/log"
 	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type User struct {
@@ -80,4 +83,15 @@ func FetchInstallationsAndRepositories(user *User) ([]Installation, []Repository
 	}
 
 	return user.Installations, repositories
+}
+
+func UpsertUser(id int64, name string, email string) *gorm.DB {
+	u := User{Id: id, Name: name, Email: email}
+	return db.DB.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"email",
+			"name",
+		}),
+	}).Create(&u)
 }

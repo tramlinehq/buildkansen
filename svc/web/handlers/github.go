@@ -2,11 +2,10 @@ package web
 
 import (
 	"buildkansen/config"
-	"buildkansen/db"
 	githubApi "buildkansen/github"
+	"buildkansen/internal/core"
 	"buildkansen/models"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +17,6 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth/gothic"
-	"gorm.io/gorm/clause"
 )
 
 type GithubActionsWorkflowWebhookEvent struct {
@@ -102,17 +100,9 @@ func GithubAuthCallback(c *gin.Context) {
 	}
 
 	uId, _ := strconv.ParseInt(user.UserID, 10, 64)
-	u := models.User{Id: uId, Name: user.Name, Email: user.Email}
-	result := db.DB.Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "id"}},
-		DoUpdates: clause.AssignmentColumns([]string{
-			"email",
-			"name",
-		}),
-	}).Create(&u)
-
-	if result.Error != nil {
-		c.JSON(500, gin.H{"error": "user already exists"})
+	appError := core.CreateOrUpdateUser(uId, user.Name, user.Email)
+	if appError != nil {
+		c.JSON(appError.Code, gin.H{"error": appError.Message})
 		return
 	}
 
@@ -120,7 +110,7 @@ func GithubAuthCallback(c *gin.Context) {
 	session.Set(config.C.AuthorizedUserInSessionKey, uId)
 	_ = session.Save()
 
-	c.Redirect(http.StatusFound, githubInstallationUrl())
+	c.Redirect(http.StatusFound, installationUrl())
 }
 
 func GithubAppsCallback(c *gin.Context) {
@@ -133,11 +123,10 @@ func GithubAppsCallback(c *gin.Context) {
 		return
 	}
 
-	client, err := githubApi.NewClient(config.C.GithubAppId, installationId, config.C.GithubPrivateKeyBase64)
 	session := sessions.Default(c)
-	err = createInstallation(session.Get(config.C.AuthorizedUserInSessionKey).(int64), client)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update installation"})
+	appError := core.CreateInstallation(session.Get(config.C.AuthorizedUserInSessionKey).(int64), installationId)
+	if appError != nil {
+		c.JSON(appError.Code, gin.H{"error": appError.Message})
 		return
 	}
 
@@ -225,50 +214,7 @@ func GithubHook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
-func createInstallation(userId int64, client *githubApi.Client) error {
-	githubInstallation, _, _ := client.GetInstallation()
-	githubRepositories, _, _ := client.GetInstallationRepos()
-
-	tx := db.DB.Begin()
-
-	installation := models.Installation{
-		Id:               *githubInstallation.ID,
-		AccountType:      *githubInstallation.Account.Type,
-		AccountID:        *githubInstallation.Account.ID,
-		AccountLogin:     *githubInstallation.Account.Login,
-		AccountAvatarUrl: *githubInstallation.Account.AvatarURL,
-		UserId:           userId,
-	}
-	result := tx.Create(&installation)
-
-	if result.Error != nil {
-		tx.Rollback()
-		return errors.New("failed to save the installation")
-	}
-
-	for _, repo := range githubRepositories.Repositories {
-		repository := models.Repository{
-			Id:             *repo.ID,
-			Name:           *repo.Name,
-			FullName:       *repo.FullName,
-			Private:        *repo.Private,
-			InstallationId: installation.Id,
-		}
-
-		result := tx.Create(&repository)
-
-		if result.Error != nil {
-			tx.Rollback()
-			return errors.New("failed to save the installation")
-		}
-	}
-
-	tx.Commit()
-
-	return nil
-}
-
-func githubInstallationUrl() string {
+func installationUrl() string {
 	u := &url.URL{
 		Scheme: "https",
 		Host:   "github.com",
