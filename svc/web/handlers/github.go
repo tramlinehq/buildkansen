@@ -63,6 +63,7 @@ type GithubActionsWorkflowWebhookEvent struct {
 	Repository struct {
 		ID               int64  `json:"id"`
 		DefaultBranch    string `json:"default_branch"`
+		HtmlUrl          string `json:"html_url"`
 		CustomProperties struct {
 		} `json:"custom_properties"`
 	} `json:"repository"`
@@ -85,6 +86,7 @@ const (
 	kickOffScript = "./runner.kickoff"
 	vmUsername    = "admin"
 	vmIPAddress   = "192.168.64.21"
+	runnerName    = "tramline-runner"
 )
 
 func GithubAuth(c *gin.Context) {
@@ -163,7 +165,7 @@ func GithubHook(c *gin.Context) {
 	if response.WorkflowJob.ID != 0 {
 		fmt.Println("Received a workflow job event")
 
-		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, "tramline-runner") {
+		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, runnerName) {
 			fmt.Println("Received a queued workflow job event for tramline runner")
 			_, err := models.FindEntity(models.Installation{}, response.Organization.ID, "account_id")
 			if err != nil {
@@ -187,10 +189,9 @@ func GithubHook(c *gin.Context) {
 			macosVm := Resource{
 				VMUsername:        vmUsername,
 				VMIPAddress:       vmIPAddress,
-				SSHKeyPath:        "id_rsa_bullet",
 				GitHubToken:       *token.Token,
-				GitHubRunnerLabel: "tramline-runner",
-				RepoURL:           "https://github.com/tramlinehq/dump",
+				GitHubRunnerLabel: runnerName,
+				RepoURL:           response.Repository.HtmlUrl,
 			}
 
 			args := []string{
@@ -211,6 +212,8 @@ func GithubHook(c *gin.Context) {
 			}
 
 			fmt.Println("kicked off the runner.kickoff script!")
+		} else if response.Action == "completed" && containsValue(response.WorkflowJob.Labels, runnerName) {
+			fmt.Println("Received a workflow completion event for tramline runner job")
 		}
 	} else if installationId != 0 && response.Installation.Account.ID != 0 {
 		fmt.Println("Received an installation event")
