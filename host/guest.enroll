@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source base
+
 # ##################################################
 # Print usage and manage opts
 # ##################################################
@@ -19,16 +21,16 @@ while getopts "n:l::h" opt; do
     n  ) runner_name="$OPTARG";;
     l  ) runner_labels="$OPTARG";;
     h  ) show_usage; exit 0;;
-    \? ) echo "Invalid option: -$OPTARG"; show_usage; exit 1;;
-    :  ) echo "Option -$OPTARG requires an argument."; show_usage; exit 1;;
-    *  ) echo "Unimplemented option: -$opt" >&2; exit 1;;
+    \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
+    *  ) log_debug "Unimplemented option: -$opt" >&2; exit 1;;
   esac
 done
 
 source base.opts
 
 if [ -z "$runner_name" ] || [ -z "$runner_labels" ]; then
-        echo 'Missing -n or -l' >&2
+        log_debug 'Missing -n or -l' >&2
         exit 1
 fi
 
@@ -38,13 +40,12 @@ fi
 
 if [[ -f .env ]]; then
   source .env
-  echo "Environment variables loaded from .env file."
+  log_debug "Environment variables loaded from .env file."
 else
-  echo "Error: .env file not found."
+  log_debug "Error: .env file not found."
   exit 1
 fi
 
-source base
 trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
 
 # ##################################################
@@ -77,7 +78,7 @@ done
 # Send updates to Buildkansen
 # ##################################################
 
-echo "Skipping Buildkansen part for now..."
+log_debug "Skipping Buildkansen part for now..."
 exit 0
 log_output "[HOST] 🙊 Telling buildkansen about the new VM"
 data='{
@@ -97,7 +98,7 @@ if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
   log_output "[HOST] 🚀 Guest machine enrolled and started!"
   exit 0
 else
-  echo "Error: Request failed with HTTP Status Code: $response"
+  log_debug "Error: Request failed with HTTP Status Code: $response"
   log_output "[HOST] 💣 Failed to enroll guest machine!"
   tart stop "$INSTANCE_NAME"
   tart delete "$INSTANCE_NAME"

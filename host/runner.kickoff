@@ -26,15 +26,15 @@ while getopts "t:l:r:i::h" opt; do
     r  ) github_runner_url="$OPTARG";;
     i  ) vm_ip_address="$OPTARG";;
     h  ) show_usage; exit 0;;
-    \? ) echo_log "Invalid option: -$OPTARG"; show_usage; exit 1;;
-    :  ) echo_log "Option -$OPTARG requires an argument."; show_usage; exit 1;;
+    \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
   esac
 done
 
 source base.opts
 
 if [ -z "$github_runner_registration_token" ] || [ -z "$github_runner_label" ] || [ -z "$github_runner_url" ]; then
-        echo_log 'Missing -t or -l or -r' >&2
+        log_debug 'Missing -t or -l or -r' >&2
         exit 1
 fi
 
@@ -44,9 +44,9 @@ fi
 
 if [[ -f .env ]]; then
   source .env
-  echo_log "Environment variables loaded from .env file."
+  log_debug "Environment variables loaded from .env file."
 else
-  echo_log "Error: .env file not found."
+  log_debug "Error: .env file not found."
   exit 1
 fi
 
@@ -69,6 +69,13 @@ ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" \
   --labels $github_runner_label \
   --unattended --replace" \
   >/dev/null
+if [ $? -eq 0 ]; then
+  log_output "[OWNER] 🏃 Configured runner successfully."
+else
+  log_output "[OWNER] 🏃 Configuration of runner failed."
+  exit 1
+fi
 
 log_output "[OWNER] 🏃 Starting runner on VM"
-ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output
+nohup ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
+log_output "[OWNER] 🏃 Runner process started with PID: $!"
