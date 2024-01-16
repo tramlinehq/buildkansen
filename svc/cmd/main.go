@@ -3,6 +3,7 @@ package main
 import (
 	"buildkansen/config"
 	"buildkansen/db"
+	"buildkansen/internal/jobs"
 	"buildkansen/log"
 	"buildkansen/models"
 	"buildkansen/web"
@@ -13,5 +14,6 @@ func main() {
 	config.Load()
 	db.Init()
 	models.Migrate()
+	jobs.Init()
 	web.Run()
 }

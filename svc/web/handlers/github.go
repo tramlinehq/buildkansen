@@ -2,15 +2,13 @@ package web
 
 import (
 	"buildkansen/config"
-	githubApi "buildkansen/github"
 	"buildkansen/internal/core"
-	"buildkansen/models"
+	"buildkansen/internal/jobs"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"time"
 
@@ -71,20 +69,8 @@ type GithubActionsWorkflowWebhookEvent struct {
 	} `json:"organization"`
 }
 
-type Resource struct {
-	VMUsername        string
-	VMIPAddress       string
-	SSHKeyPath        string
-	GitHubToken       string
-	GitHubRunnerLabel string
-	RepoURL           string
-}
-
 const (
-	kickOffScript = "./runner.kickoff"
-	vmUsername    = "admin"
-	vmIPAddress   = "192.168.64.21"
-	runnerName    = "tramline-runner"
+	runnerName = "tramline-runner"
 )
 
 func GithubAuth(c *gin.Context) {
@@ -154,53 +140,16 @@ func GithubHook(c *gin.Context) {
 	if response.WorkflowJob.ID != 0 {
 		fmt.Println("Received a workflow job event")
 
+		job := jobs.NewJob(response.Organization.ID, response.Organization.Login, response.Repository.ID, response.Repository.HtmlUrl, installationId, runnerName)
+
 		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, runnerName) {
 			fmt.Println("Received a queued workflow job event for tramline runner")
-			_, err := models.FindEntity(models.Installation{}, response.Organization.ID, "account_id")
-			if err != nil {
-				fmt.Println("could not find an installation for this webhook")
-				return
-			}
-			repo, err := models.FindEntityById(models.Repository{}, response.Repository.ID)
-			if err != nil {
-				fmt.Println("could not find a repository for this webhook")
+			appError := job.Process()
+			if appError != nil {
+				c.JSON(appError.Code, gin.H{"error": appError.Message})
 				return
 			}
 
-			client, err := githubApi.NewClient(config.C.GithubAppId, installationId, config.C.GithubPrivateKeyBase64)
-			token, _, err := client.GetActionsRegistrationToken(response.Organization.Login, repo.(models.Repository).Name)
-
-			if err != nil {
-				fmt.Println("could not get registration token: ", err.Error())
-				return
-			}
-
-			macosVm := Resource{
-				VMUsername:        vmUsername,
-				VMIPAddress:       vmIPAddress,
-				GitHubToken:       *token.Token,
-				GitHubRunnerLabel: runnerName,
-				RepoURL:           response.Repository.HtmlUrl,
-			}
-
-			args := []string{
-				"-i", macosVm.VMIPAddress,
-				"-t", macosVm.GitHubToken,
-				"-l", macosVm.GitHubRunnerLabel,
-				"-r", macosVm.RepoURL,
-			}
-
-			fmt.Printf("Executing runner script with following args: %v", args)
-
-			cmd := exec.Command(kickOffScript, args...)
-			cmd.Dir = "../host"
-			err = cmd.Run()
-
-			if err != nil {
-				fmt.Println("Error:", err)
-			}
-
-			fmt.Println("kicked off the runner.kickoff script!")
 		} else if response.Action == "completed" && containsValue(response.WorkflowJob.Labels, runnerName) {
 			fmt.Println("Received a workflow completion event for tramline runner job")
 		}
