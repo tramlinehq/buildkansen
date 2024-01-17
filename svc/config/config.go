@@ -10,6 +10,7 @@ import (
 type AppConfig struct {
 	AppEnv                       string
 	DbName                       string
+	DbConnectionString           string
 	SessionName                  string
 	SessionSecret                string
 	GithubAppUrl                 string
@@ -37,6 +38,7 @@ func Load() {
 	C = &AppConfig{
 		AppEnv:                       getEnv("ENV", "development"),
 		DbName:                       getEnv("APP_NAME", ""),
+		DbConnectionString:           getEnv("DB_CONNECTION_STRING", ""),
 		SessionName:                  getEnv("APP_NAME", ""),
 		SessionSecret:                getEnv("SESSION_SECRET", ""),
 		GithubAppUrl:                 getEnv("GITHUB_APP_URL", ""),
