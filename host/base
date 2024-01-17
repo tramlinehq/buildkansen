@@ -2,8 +2,7 @@
 
 LOGFILE=runner.log
 DEBUGLOGFILE=debug.log
-RUNNER_NAME=Runner
-BASE_IMAGE=ghcr.io/tramlinehq/sonoma-runner-sm:latest
+RUNNER_NAME=TramlineRunner
 
 function log_output {
 	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >> $LOGFILE

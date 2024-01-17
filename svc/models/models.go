@@ -10,7 +10,7 @@ import (
 )
 
 type User struct {
-	Id            int64 `gorm:"primary_key"`
+	Id            int64 `gorm:"primaryKey"`
 	Name          string
 	Email         string    `gorm:"type:varchar(100);unique_index"`
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
@@ -20,7 +20,7 @@ type User struct {
 }
 
 type Installation struct {
-	Id               int64 `gorm:"primary_key"`
+	Id               int64 `gorm:"primaryKey"`
 	AccountType      string
 	AccountID        int64
 	AccountLogin     string
@@ -34,7 +34,7 @@ type Installation struct {
 }
 
 type Repository struct {
-	Id             int64 `gorm:"primary_key"`
+	Id             int64 `gorm:"primaryKey"`
 	Name           string
 	FullName       string
 	Private        bool
@@ -45,22 +45,35 @@ type Repository struct {
 	DeletedAt      time.Time
 }
 
+type VM struct {
+	Id                int64 `gorm:"primaryKey"`
+	VMIPAddress       string
+	GithubRunnerLabel string
+	Status            string
+	CreatedAt         time.Time `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+}
+
 func Migrate() {
-	if err := db.DB.AutoMigrate(&User{}, &Installation{}, &Repository{}); err != nil {
+	if err := db.DB.AutoMigrate(&User{}, &Installation{}, &Repository{}, &VM{}); err != nil {
 		log.Fatalf("Error migrating the database")
 		panic(err)
 	}
 }
 
-type model interface {
-	Installation | Repository | User
+type models interface {
+	Installation | Repository | User | VM
 }
 
-func FindEntityById[U model](m U, value int64) (interface{}, error) {
+type values interface {
+	int64 | string
+}
+
+func FindEntityById[U models](m U, value int64) (interface{}, error) {
 	return FindEntity(m, value, "id")
 }
 
-func FindEntity[U model](m U, value int64, by string) (interface{}, error) {
+func FindEntity[U models, V values](m U, value V, by string) (interface{}, error) {
 	condition := by + " = ?"
 	result := db.DB.Where(condition, value).First(&m)
 
@@ -94,4 +107,9 @@ func UpsertUser(id int64, name string, email string) *gorm.DB {
 			"name",
 		}),
 	}).Create(&u)
+}
+
+func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
+	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: "created"}
+	return db.DB.Create(&vm)
 }

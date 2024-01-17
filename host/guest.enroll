@@ -7,19 +7,21 @@ source base
 # ##################################################
 
 runner_name=""
-runner_labels=""
+runner_label=""
 
 function show_usage {
   echo "Usage: $0 <flags>"
+  echo "  -i: Specify base image name"
   echo "  -n: Specify runner name"
-  echo "  -l: Specify GitHub runner label(s)"
+  echo "  -l: Specify GitHub runner label"
   echo "  -h: Show this help message"
 }
 
-while getopts "n:l::h" opt; do
+while getopts "i:n:l::h" opt; do
   case $opt in
+    i  ) base_image="$OPTARG";;
     n  ) runner_name="$OPTARG";;
-    l  ) runner_labels="$OPTARG";;
+    l  ) runner_label="$OPTARG";;
     h  ) show_usage; exit 0;;
     \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
     :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
@@ -29,7 +31,7 @@ done
 
 source base.opts
 
-if [ -z "$runner_name" ] || [ -z "$runner_labels" ]; then
+if [ -z "$runner_name" ] || [ -z "$runner_label" ]; then
         log_debug 'Missing -n or -l' >&2
         exit 1
 fi
@@ -54,7 +56,7 @@ trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
 
 log_output "[HOST] 💻 Launching macOS VM"
 INSTANCE_NAME="${runner_name}-$(uuidgen)"
-tart clone "$BASE_IMAGE" "$INSTANCE_NAME"
+tart clone "$base_image" "$INSTANCE_NAME"
 trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $INSTANCE_NAME; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
 tart run --no-graphics "$INSTANCE_NAME" >/dev/null 2>&1 &
 
@@ -73,19 +75,14 @@ until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChe
   sleep 1
 done
 
-
 # ##################################################
 # Send updates to Buildkansen
 # ##################################################
 
-log_debug "Skipping Buildkansen part for now..."
-exit 0
 log_output "[HOST] 🙊 Telling buildkansen about the new VM"
 data='{
-  "vm_username": "'"$VM_USERNAME"'",
   "vm_ip_address": "'"$VM_IP_ADDRESS"'",
-  "github_runner_label": ["'"${runner_labels//,/\",\"}"'"],
-  "ssh_key_path": "'"$VM_SSH_KEY_PATH"'"
+  "github_runner_label": "'"$runner_label"'"
 }'
 response=$(curl -s -w "%{http_code}" --output /dev/null \
                       -XPUT \

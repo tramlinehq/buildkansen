@@ -37,8 +37,19 @@ func (jm *JobManager) EnqueueJob(job Job) {
 func (jm *JobManager) worker(id int) {
 	defer jm.wg.Done()
 
+	// TODO:
+	// Only read if VM is available
+	// If available,
+	// lock the vm (postgres)
+	// execute the job on the vm
+	//
+	// If unavailable,
+	// wait for the vm to become available (sleep)
 	for job := range jm.jobQueue {
-		job.Execute()
+		err := job.Execute()
+		if err != nil {
+			fmt.Printf("Worker %d could not process job: %+v\n", id, job)
+		}
 
 		fmt.Printf("Worker %d processed job: %+v\n", id, job)
 	}

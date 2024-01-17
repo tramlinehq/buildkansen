@@ -17,7 +17,7 @@ import (
 	"github.com/markbates/goth/gothic"
 )
 
-type GithubActionsWorkflowWebhookEvent struct {
+type githubActionsWorkflowWebhookEvent struct {
 	Action       string `json:"action"`
 	Installation struct {
 		ID      int64 `json:"id"`
@@ -127,7 +127,7 @@ func GithubHook(c *gin.Context) {
 		return
 	}
 
-	var response GithubActionsWorkflowWebhookEvent
+	var response githubActionsWorkflowWebhookEvent
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -139,9 +139,7 @@ func GithubHook(c *gin.Context) {
 
 	if response.WorkflowJob.ID != 0 {
 		fmt.Println("Received a workflow job event")
-
 		job := jobs.NewJob(response.Organization.ID, response.Organization.Login, response.Repository.ID, response.Repository.HtmlUrl, installationId, runnerName)
-
 		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, runnerName) {
 			fmt.Println("Received a queued workflow job event for tramline runner")
 			appError := job.Process()
@@ -149,7 +147,6 @@ func GithubHook(c *gin.Context) {
 				c.JSON(appError.Code, gin.H{"error": appError.Message})
 				return
 			}
-
 		} else if response.Action == "completed" && containsValue(response.WorkflowJob.Labels, runnerName) {
 			fmt.Println("Received a workflow completion event for tramline runner job")
 		}

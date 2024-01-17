@@ -34,7 +34,3 @@ func HandleLogin() gin.HandlerFunc {
 		c.Redirect(http.StatusFound, "/")
 	}
 }
-
-func RegisterGuestVM(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
-}
