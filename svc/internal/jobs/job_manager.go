@@ -74,7 +74,7 @@ func (jm *JobManager) worker(id int) {
 		select {
 		case job, ok := <-jm.jobQueue:
 			if ok {
-				result = tx.Model(&vm).Update("status", "processing")
+				result = tx.Model(&vm).Update("status", models.VMProcessing)
 				tx.Commit()
 				err := job.Execute()
 				if err != nil {

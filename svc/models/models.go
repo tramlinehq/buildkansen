@@ -45,11 +45,18 @@ type Repository struct {
 	DeletedAt      time.Time
 }
 
+type VMStatus string
+
+const (
+	VMAvailable  VMStatus = "available"
+	VMProcessing VMStatus = "processing"
+)
+
 type VM struct {
 	Id                int64 `gorm:"primaryKey"`
 	VMIPAddress       string
 	GithubRunnerLabel string
-	Status            string
+	Status            VMStatus  `gorm:"type:enum('available', 'processing')"`
 	CreatedAt         time.Time `gorm:"autoCreateTime"`
 	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
 }
@@ -110,6 +117,11 @@ func UpsertUser(id int64, name string, email string) *gorm.DB {
 }
 
 func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
-	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: "available"}
+	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: VMAvailable}
 	return db.DB.Create(&vm)
+}
+
+func FindAvailableVM() *gorm.DB {
+	vm := VM{}
+	return db.DB.Clauses(clause.Locking{Strength: "UPDATE"}).Where("status = ?", VMAvailable).First(&vm)
 }
