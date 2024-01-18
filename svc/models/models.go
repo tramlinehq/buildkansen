@@ -56,7 +56,7 @@ type VM struct {
 	Id                int64 `gorm:"primaryKey"`
 	VMIPAddress       string
 	GithubRunnerLabel string
-	Status            VMStatus  `gorm:"type:enum('available', 'processing')"`
+	Status            VMStatus  `sql:"type:enum('available', 'processing')"`
 	CreatedAt         time.Time `gorm:"autoCreateTime"`
 	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
 }
@@ -116,12 +116,42 @@ func UpsertUser(id int64, name string, email string) *gorm.DB {
 	}).Create(&u)
 }
 
+type VMLock struct {
+	Lock *gorm.DB
+	VM   *VM
+}
+
 func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
 	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: VMAvailable}
 	return db.DB.Create(&vm)
 }
 
-func FindAvailableVM() *gorm.DB {
-	vm := VM{}
-	return db.DB.Clauses(clause.Locking{Strength: "UPDATE"}).Where("status = ?", VMAvailable).First(&vm)
+func FindVM() (*VMLock, error) {
+	vmLock := VMLock{Lock: db.DB.Begin(), VM: &VM{}}
+	defer func() {
+		if r := recover(); r != nil {
+			vmLock.Close()
+		}
+	}()
+
+	result := vmLock.Start()
+	if result.Error != nil {
+		vmLock.Close()
+		return nil, result.Error
+	}
+
+	return &vmLock, nil
+}
+
+func (vmLock *VMLock) Commit() {
+	vmLock.Lock.Model(&vmLock.VM).Update("status", VMProcessing)
+	vmLock.Lock.Commit()
+}
+
+func (vmLock *VMLock) Close() {
+	vmLock.Lock.Rollback()
+}
+
+func (vmLock *VMLock) Start() *gorm.DB {
+	return db.DB.Clauses(clause.Locking{Strength: "UPDATE"}).Where("status = ?", VMAvailable).First(&vmLock.VM)
 }
