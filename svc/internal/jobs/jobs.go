@@ -3,10 +3,8 @@ package jobs
 import (
 	"buildkansen/config"
 	githubApi "buildkansen/github"
-	"buildkansen/internal/app_error"
 	"buildkansen/models"
 	"fmt"
-	"net/http"
 	"os/exec"
 )
 
@@ -16,45 +14,27 @@ const (
 )
 
 type Job struct {
-	OrganizationId    int64
 	OrganizationLogin string
 	RepositoryId      int64
 	RepositoryUrl     string
 	InstallationId    int64
 	RunnerName        string
+	WorkflowRunId     int64
 }
 
-func NewJob(organizationId int64, organizationLogin string, repositoryId int64, repositoryUrl string, installationId int64, runnerName string) *Job {
+func NewJob(organizationLogin string, repositoryId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
 	return &Job{
-		OrganizationId:    organizationId,
 		OrganizationLogin: organizationLogin,
 		RepositoryId:      repositoryId,
 		RepositoryUrl:     repositoryUrl,
 		InstallationId:    installationId,
 		RunnerName:        runnerName,
+		WorkflowRunId:     runId,
 	}
 }
 
-func (job *Job) Process() *app_error.AppError {
-	_, err := models.FindEntity(models.Installation{}, job.OrganizationId, "account_id")
-	if err != nil {
-		fmt.Println("could not find an installation for this webhook")
-		return app_error.NewAppError(http.StatusNotFound, "Failed to find an installation for this webhook", err)
-	}
-
-	_, err = models.FindEntityById(models.Repository{}, job.RepositoryId)
-	if err != nil {
-		fmt.Println("could not find a repository for this webhook")
-		return app_error.NewAppError(http.StatusNotFound, "Failed to find a repository for this webhook", err)
-	}
-
-	JobQueueManager.EnqueueJob(*job)
-
-	return nil
-}
-
-func (job *Job) GetOrganizationId() int64 {
-	return job.OrganizationId
+func (job *Job) Process() {
+	jobQueueManager.enqueueJob(*job)
 }
 
 func (job *Job) Execute() error {

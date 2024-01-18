@@ -56,9 +56,12 @@ type VM struct {
 	Id                int64 `gorm:"primaryKey"`
 	VMIPAddress       string
 	GithubRunnerLabel string
-	Status            VMStatus  `sql:"type:enum('available', 'processing')"`
-	CreatedAt         time.Time `gorm:"autoCreateTime"`
-	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+	ExternalRunId     *int64
+	RepositoryId      *int64
+	Repository        Repository `gorm:"foreignKey:RepositoryId;references:Id"`
+	Status            VMStatus   `sql:"type:enum('available', 'processing')"`
+	CreatedAt         time.Time  `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time  `gorm:"autoUpdateTime"`
 }
 
 func Migrate() {
@@ -122,11 +125,11 @@ type VMLock struct {
 }
 
 func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
-	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: VMAvailable}
+	vm := VM{Status: VMAvailable, VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel}
 	return db.DB.Create(&vm)
 }
 
-func FindVM() (*VMLock, error) {
+func InaugurateVM() (*VMLock, error) {
 	vmLock := VMLock{Lock: db.DB.Begin(), VM: &VM{}}
 	defer func() {
 		if r := recover(); r != nil {
@@ -143,8 +146,13 @@ func FindVM() (*VMLock, error) {
 	return &vmLock, nil
 }
 
-func (vmLock *VMLock) Commit() {
-	vmLock.Lock.Model(&vmLock.VM).Update("status", VMProcessing)
+func FreeVM(runId int64, repositoryId int64) *gorm.DB {
+	vm := VM{}
+	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id", runId, repositoryId).Updates(VM{Status: VMAvailable, ExternalRunId: nil, RepositoryId: nil})
+}
+
+func (vmLock *VMLock) Commit(runId int64, repositoryId int64) {
+	vmLock.Lock.Model(&vmLock.VM).Updates(VM{Status: VMProcessing, ExternalRunId: &runId, RepositoryId: &repositoryId})
 	vmLock.Lock.Commit()
 }
 

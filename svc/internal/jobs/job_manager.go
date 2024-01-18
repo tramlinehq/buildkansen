@@ -9,39 +9,39 @@ import (
 
 const workerWaitTimeNs = time.Second * 5
 
-type JobManager struct {
+type jobManager struct {
 	jobQueue chan Job
 	wg       sync.WaitGroup
 }
 
-var JobQueueManager *JobManager
+var jobQueueManager *jobManager
 
 func Start() {
-	JobQueueManager = &JobManager{
+	jobQueueManager = &jobManager{
 		jobQueue: make(chan Job),
 	}
-	JobQueueManager.StartWorkers(1)
+	jobQueueManager.startWorkers(1)
 }
 
-// StartWorkers starts the specified number of worker goroutines
-func (jm *JobManager) StartWorkers(numWorkers int) {
+// startWorkers starts the specified number of worker goroutines
+func (jm *jobManager) startWorkers(numWorkers int) {
 	for i := 1; i <= numWorkers; i++ {
 		jm.wg.Add(1)
 		go jm.worker(i)
 	}
 }
 
-// EnqueueJob enqueues a job to the job queue
-func (jm *JobManager) EnqueueJob(job Job) {
+// enqueueJob enqueues a job to the job queue
+func (jm *jobManager) enqueueJob(job Job) {
 	jm.jobQueue <- job
 }
 
 // worker is the worker goroutine that processes jobs from the queue
-func (jm *JobManager) worker(id int) {
+func (jm *jobManager) worker(id int) {
 	defer jm.wg.Done()
 
 	for {
-		vmLock, err := models.FindVM()
+		vmLock, err := models.InaugurateVM()
 		if err != nil {
 			fmt.Printf("No available VMs")
 			time.Sleep(workerWaitTimeNs)
@@ -51,12 +51,14 @@ func (jm *JobManager) worker(id int) {
 		select {
 		case job, ok := <-jm.jobQueue:
 			if ok {
-				vmLock.Commit()
 				err := job.Execute()
-
 				if err != nil {
 					fmt.Printf("Worker %d could not process job: %+v\n", id, job)
+					vmLock.Close()
+					continue
 				}
+
+				vmLock.Commit(job.WorkflowRunId, job.RepositoryId)
 			}
 
 			fmt.Printf("Worker %d processed job: %+v\n", id, job)

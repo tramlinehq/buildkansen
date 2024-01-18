@@ -69,10 +69,6 @@ type githubActionsWorkflowWebhookEvent struct {
 	} `json:"organization"`
 }
 
-const (
-	runnerName = "tramline-runner"
-)
-
 func GithubAuth(c *gin.Context) {
 	gothic.BeginAuthHandler(c.Writer, c.Request)
 }
@@ -139,16 +135,26 @@ func GithubHook(c *gin.Context) {
 
 	if response.WorkflowJob.ID != 0 {
 		fmt.Println("Received a workflow job event")
-		job := jobs.NewJob(response.Organization.ID, response.Organization.Login, response.Repository.ID, response.Repository.HtmlUrl, installationId, runnerName)
-		if response.Action == "queued" && containsValue(response.WorkflowJob.Labels, runnerName) {
+
+		runnerName, appError := core.FindValidRunnerName(response.WorkflowJob.Labels)
+		if appError != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": appError.Message})
+			return
+		}
+
+		appError = core.ValidateWorkflow(response.Organization.ID, response.Repository.ID)
+		if appError != nil {
+			c.JSON(appError.Code, gin.H{"error": appError.Message})
+			return
+		}
+
+		if response.Action == "queued" {
 			fmt.Println("Received a queued workflow job event for tramline runner")
-			appError := job.Process()
-			if appError != nil {
-				c.JSON(appError.Code, gin.H{"error": appError.Message})
-				return
-			}
-		} else if response.Action == "completed" && containsValue(response.WorkflowJob.Labels, runnerName) {
-			fmt.Println("Received a workflow completion event for tramline runner job")
+			job := jobs.NewJob(response.Organization.Login, response.Repository.ID, response.Repository.HtmlUrl, installationId, runnerName, response.WorkflowJob.RunId)
+			job.Process()
+		} else if response.Action == "completed" {
+			fmt.Println("Received a completed workflow job event for tramline runner")
+			core.CompleteWorkflow(response.WorkflowJob.RunId, response.Repository.ID)
 		}
 	} else if installationId != 0 && response.Installation.Account.ID != 0 {
 		fmt.Println("Received an installation event")
@@ -172,13 +178,4 @@ func installationUrl() string {
 	u.RawQuery = rq.Encode()
 
 	return u.String()
-}
-
-func containsValue(arr []string, value string) bool {
-	for _, element := range arr {
-		if element == value {
-			return true
-		}
-	}
-	return false
 }

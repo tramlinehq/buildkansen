@@ -24,6 +24,7 @@ type AppConfig struct {
 	GithubNewInstallationUrl     string
 	AuthorizedUserInSessionKey   string
 	InternalApiToken             string
+	ValidRunnerNames             []string
 }
 
 var C *AppConfig
@@ -51,6 +52,7 @@ func Load() {
 		GithubAppInstallationBaseUrl: getEnv("GITHUB_NEW_INSTALLATION_URL", ""),
 		InternalApiToken:             getEnv("INTERNAL_API_TOKEN", ""),
 		AuthorizedUserInSessionKey:   "User ID",
+		ValidRunnerNames:             []string{"tramline-runner"},
 	}
 }
 
