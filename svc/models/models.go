@@ -110,6 +110,6 @@ func UpsertUser(id int64, name string, email string) *gorm.DB {
 }
 
 func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
-	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: "created"}
+	vm := VM{VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel, Status: "available"}
 	return db.DB.Create(&vm)
 }

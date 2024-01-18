@@ -14,6 +14,6 @@ func main() {
 	config.Load()
 	db.Init()
 	models.Migrate()
-	jobs.Init()
+	jobs.Start()
 	web.Run()
 }

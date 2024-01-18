@@ -53,6 +53,10 @@ func (job *Job) Process() *app_error.AppError {
 	return nil
 }
 
+func (job *Job) GetOrganizationId() int64 {
+	return job.OrganizationId
+}
+
 func (job *Job) Execute() error {
 	repo, err := models.FindEntityById(models.Repository{}, job.RepositoryId)
 	if err != nil {
@@ -67,7 +71,7 @@ func (job *Job) Execute() error {
 		return err
 	}
 
-	vm, err := models.FindEntity(models.VM{}, job.RunnerName, "label")
+	vm, err := models.FindEntity(models.VM{}, job.RunnerName, "github_runner_label")
 
 	args := []string{
 		"-i", vm.(models.VM).VMIPAddress,
