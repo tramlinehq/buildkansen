@@ -3,6 +3,7 @@ package models
 import (
 	"buildkansen/db"
 	"buildkansen/log"
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -56,8 +57,8 @@ type VM struct {
 	Id                int64 `gorm:"primaryKey"`
 	VMIPAddress       string
 	GithubRunnerLabel string
-	ExternalRunId     *int64
-	RepositoryId      *int64
+	ExternalRunId     sql.NullInt64
+	RepositoryId      sql.NullInt64
 	Repository        Repository `gorm:"foreignKey:RepositoryId;references:Id"`
 	Status            VMStatus   `sql:"type:enum('available', 'processing')"`
 	CreatedAt         time.Time  `gorm:"autoCreateTime"`
@@ -148,11 +149,11 @@ func InaugurateVM() (*VMLock, error) {
 
 func FreeVM(runId int64, repositoryId int64) *gorm.DB {
 	vm := VM{}
-	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id", runId, repositoryId).Updates(VM{Status: VMAvailable, ExternalRunId: nil, RepositoryId: nil})
+	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id = ?", runId, repositoryId).Updates(map[string]interface{}{"external_run_id": gorm.Expr("NULL"), "repository_id": gorm.Expr("NULL"), "status": VMAvailable})
 }
 
 func (vmLock *VMLock) Commit(runId int64, repositoryId int64) {
-	vmLock.Lock.Model(&vmLock.VM).Updates(VM{Status: VMProcessing, ExternalRunId: &runId, RepositoryId: &repositoryId})
+	vmLock.Lock.Model(&vmLock.VM).Updates(VM{Status: VMProcessing, ExternalRunId: sql.NullInt64{Int64: runId, Valid: true}, RepositoryId: sql.NullInt64{Int64: repositoryId, Valid: true}})
 	vmLock.Lock.Commit()
 }
 
