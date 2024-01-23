@@ -168,7 +168,7 @@ func GithubHook(c *gin.Context) {
 			return
 		}
 
-		appError = core.ValidateWorkflow(response.Organization.ID, response.Repository.ID)
+		_, repository, appError := core.ValidateWorkflow(response.Organization.ID, response.Repository.ID)
 		if appError != nil {
 			c.JSON(appError.Code, gin.H{"error": appError.Message})
 			return
@@ -179,7 +179,7 @@ func GithubHook(c *gin.Context) {
 			fmt.Println("Received a queued workflow job event for tramline runner")
 			jobs.NewJob(
 				response.Organization.Login,
-				response.Repository.ID,
+				repository.InternalId,
 				response.Repository.HtmlUrl,
 				installationId,
 				runnerName,
@@ -187,7 +187,7 @@ func GithubHook(c *gin.Context) {
 			).Process()
 		case "completed":
 			fmt.Println("Received a completed workflow job event for tramline runner")
-			core.CompleteWorkflow(response.WorkflowJob.RunId, response.Repository.ID)
+			core.CompleteWorkflow(response.WorkflowJob.RunId, repository.InternalId)
 		}
 	} else if installationId != 0 && response.Installation.Account.ID != 0 {
 		fmt.Println("Received an installation event")

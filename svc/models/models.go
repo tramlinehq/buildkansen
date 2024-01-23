@@ -21,12 +21,13 @@ type User struct {
 }
 
 type Installation struct {
-	Id               int64 `gorm:"primaryKey"`
+	InternalId       int64 `gorm:"primaryKey"`
+	Id               int64 `gorm:"index:idx_uniq_installation,unique"`
 	AccountType      string
 	AccountID        int64
 	AccountLogin     string
 	AccountAvatarUrl string
-	UserId           int64        `gorm:"primaryKey"`
+	UserId           int64        `gorm:"index:idx_uniq_installation,unique"`
 	User             User         `gorm:"foreignKey:UserId;references:Id"`
 	Repositories     []Repository `gorm:"foreignKey:InstallationId"`
 	CreatedAt        time.Time    `gorm:"autoCreateTime"`
@@ -35,12 +36,13 @@ type Installation struct {
 }
 
 type Repository struct {
-	Id             int64 `gorm:"primaryKey"`
+	InternalId     int64 `gorm:"primaryKey"`
+	Id             int64 `gorm:"index:idx_uniq_repository,unique"`
 	Name           string
 	FullName       string
 	Private        bool
-	InstallationId int64
-	Installation   Installation `gorm:"foreignKey:InstallationId;references:Id"`
+	InstallationId int64        `gorm:"index:idx_uniq_repository,unique"`
+	Installation   Installation `gorm:"foreignKey:InstallationId;references:InternalId"`
 	CreatedAt      time.Time    `gorm:"autoCreateTime"`
 	UpdatedAt      time.Time    `gorm:"autoUpdateTime"`
 	DeletedAt      time.Time
@@ -59,7 +61,7 @@ type VM struct {
 	GithubRunnerLabel string
 	ExternalRunId     sql.NullInt64
 	RepositoryId      sql.NullInt64
-	Repository        Repository `gorm:"foreignKey:RepositoryId;references:Id"`
+	Repository        Repository `gorm:"foreignKey:RepositoryId;references:InternalId"`
 	Status            VMStatus   `sql:"type:enum('available', 'processing')"`
 	CreatedAt         time.Time  `gorm:"autoCreateTime"`
 	UpdatedAt         time.Time  `gorm:"autoUpdateTime"`
@@ -93,6 +95,17 @@ func FindEntity[U models, V values](m U, value V, by string) (interface{}, error
 	}
 
 	return m, nil
+}
+
+func FindRepositoryByInstallation(installationId int64, repositoryId int64) (*Repository, error) {
+	repository := Repository{}
+	result := db.DB.Model(&repository).Where("id = ? AND installation_id = ?", repositoryId, installationId).First(&repository)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return &repository, nil
 }
 
 func FetchInstallationsAndRepositories(user *User) ([]Installation, []Repository) {
@@ -149,13 +162,13 @@ func InaugurateVM() (*VMLock, error) {
 	return &vmLock, nil
 }
 
-func FreeVM(runId int64, repositoryId int64) *gorm.DB {
+func FreeVM(runId int64, repositoryInternalId int64) *gorm.DB {
 	vm := VM{}
-	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id = ?", runId, repositoryId).Updates(map[string]interface{}{"external_run_id": gorm.Expr("NULL"), "repository_id": gorm.Expr("NULL"), "status": VMAvailable})
+	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id = ?", runId, repositoryInternalId).Updates(map[string]interface{}{"external_run_id": gorm.Expr("NULL"), "repository_id": gorm.Expr("NULL"), "status": VMAvailable})
 }
 
-func (vmLock *VMLock) Commit(runId int64, repositoryId int64) {
-	vmLock.Lock.Model(&vmLock.VM).Updates(VM{Status: VMProcessing, ExternalRunId: sql.NullInt64{Int64: runId, Valid: true}, RepositoryId: sql.NullInt64{Int64: repositoryId, Valid: true}})
+func (vmLock *VMLock) Commit(runId int64, repositoryInternalId int64) {
+	vmLock.Lock.Model(&vmLock.VM).Updates(VM{Status: VMProcessing, ExternalRunId: sql.NullInt64{Int64: runId, Valid: true}, RepositoryId: sql.NullInt64{Int64: repositoryInternalId, Valid: true}})
 	vmLock.Lock.Commit()
 }
 

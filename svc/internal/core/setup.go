@@ -51,7 +51,7 @@ func CreateInstallation(userId int64, installationId int64) *app_error.AppError 
 			Name:           *repo.Name,
 			FullName:       *repo.FullName,
 			Private:        *repo.Private,
-			InstallationId: installation.Id,
+			InstallationId: installation.InternalId,
 		}
 
 		result := tx.Create(&repository)

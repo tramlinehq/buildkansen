@@ -56,7 +56,7 @@ func (jm *jobManager) worker(id int) {
 					continue
 				}
 
-				vmLock.Commit(job.WorkflowRunId, job.RepositoryId)
+				vmLock.Commit(job.WorkflowRunId, job.RepositoryInternalId)
 			}
 
 			fmt.Printf("Worker %d processed job: %+v\n", id, job)

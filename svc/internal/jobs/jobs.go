@@ -14,22 +14,22 @@ const (
 )
 
 type Job struct {
-	OrganizationLogin string
-	RepositoryId      int64
-	RepositoryUrl     string
-	InstallationId    int64
-	RunnerName        string
-	WorkflowRunId     int64
+	OrganizationLogin    string
+	RepositoryInternalId int64
+	RepositoryUrl        string
+	InstallationId       int64
+	RunnerName           string
+	WorkflowRunId        int64
 }
 
-func NewJob(organizationLogin string, repositoryId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
+func NewJob(organizationLogin string, repositoryInternalId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
 	return &Job{
-		OrganizationLogin: organizationLogin,
-		RepositoryId:      repositoryId,
-		RepositoryUrl:     repositoryUrl,
-		InstallationId:    installationId,
-		RunnerName:        runnerName,
-		WorkflowRunId:     runId,
+		OrganizationLogin:    organizationLogin,
+		RepositoryInternalId: repositoryInternalId,
+		RepositoryUrl:        repositoryUrl,
+		InstallationId:       installationId,
+		RunnerName:           runnerName,
+		WorkflowRunId:        runId,
 	}
 }
 
@@ -38,7 +38,7 @@ func (job *Job) Process() {
 }
 
 func (job *Job) Execute() error {
-	repo, err := models.FindEntityById(models.Repository{}, job.RepositoryId)
+	repo, err := models.FindEntity(models.Repository{}, job.RepositoryInternalId, "internal_id")
 	if err != nil {
 		fmt.Println("could not find a repository for this webhook")
 		return err
