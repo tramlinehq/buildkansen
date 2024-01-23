@@ -1,0 +1,89 @@
+---
+- name: Configure Remote Mac Host Machine
+  hosts: [mac1]
+  become: yes
+  tasks:
+    - name: Install Homebrew
+      shell: |
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+- name: Install Caddy web server
+  hosts: my_hosts
+  become: true
+  become_user: root
+
+  tasks:
+    - name: Install required packages
+      apt:
+        update_cache: yes
+        name:
+          - debian-keyring
+          - debian-archive-keyring
+          - apt-transport-https
+        state: present
+
+    - name: Add Cloudsmith repository
+      apt_key:
+        url: "https://dl.cloudsmith.io/public/caddy/stable/gpg.key"
+        state: present
+
+    - name: Add Caddy repository to sources list
+      apt_repository:
+        repo:
+          "deb https://dl.cloudsmith.io/public/caddy/stable/deb/debian
+          any-version main"
+        state: present
+        filename: caddy-stable
+
+    - name: Add Caddy src repository to sources list
+      apt_repository:
+        repo:
+          "deb-src https://dl.cloudsmith.io/public/caddy/stable/deb/debian
+          any-version main"
+        state: present
+        filename: caddy-stable
+
+    - name: Install Caddy
+      apt:
+        update_cache: yes
+        name: caddy
+        state: present
+
+    - name: Enable and start Caddy service
+      service:
+        name: caddy
+        enabled: yes
+        state: started
+
+    - name: Generate SSH Key on Host Machine
+      openssh_keypair:
+        path: "/path/to/ssh/key"
+        size: 2048
+
+    - name: Download Tart
+      git:
+        repo: https://github.com/your/tart.git
+        dest: "/path/to/tart"
+
+    - name: Pull MacOS/Tart Packages
+      command: "cd /path/to/tart && git pull"
+
+    - name: Git Clone Buildkansen
+      git:
+        repo: https://github.com/your/buildkansen.git
+        dest: "/path/to/buildkansen"
+
+    - name: Systemd Service for Go App
+      systemd:
+        name: buildkansen
+        enabled: yes
+        state: started
+        daemon_reload: yes
+        no_block: yes
+        description: "Buildkansen Go App"
+        exec_start: "/path/to/buildkansen/app"
+
+    - name: Reload Nginx for Configuration Changes
+      systemd:
+        name: nginx
+        state: reloaded

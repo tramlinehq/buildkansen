@@ -1,0 +1,22 @@
+---
+- name: Setup Mac Mini
+  hosts: macmini
+
+  tasks:
+    - community.general.homebrew:
+        name: caddy
+
+    - name: Create Caddyfile
+      template:
+        src: caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+      notify: Reload Caddy
+
+    - name: Start Caddy server
+      command: caddy start
+      poll: 0
+      async: 0
+
+  handlers:
+    - name: Reload Caddy
+      command: caddy reload
