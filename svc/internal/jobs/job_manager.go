@@ -23,7 +23,6 @@ func Start() {
 	jobQueueManager.startWorkers(1)
 }
 
-// startWorkers starts the specified number of worker goroutines
 func (jm *jobManager) startWorkers(numWorkers int) {
 	for i := 1; i <= numWorkers; i++ {
 		jm.wg.Add(1)
@@ -31,12 +30,11 @@ func (jm *jobManager) startWorkers(numWorkers int) {
 	}
 }
 
-// enqueueJob enqueues a job to the job queue
 func (jm *jobManager) enqueueJob(job Job) {
 	jm.jobQueue <- job
 }
 
-// worker is the worker goroutine that processes jobs from the queue
+// worker infinitely processes jobs from the job queue
 func (jm *jobManager) worker(id int) {
 	defer jm.wg.Done()
 
