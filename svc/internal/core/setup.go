@@ -9,12 +9,13 @@ import (
 	"net/http"
 )
 
-func CreateOrUpdateUser(id int64, name string, email string) *app_error.AppError {
-	result := models.UpsertUser(id, name, email)
+func CreateOrUpdateUser(id int64, name string, email string) (*app_error.AppError, *models.User) {
+	result, user := models.UpsertUser(id, name, email)
 	if result.Error != nil {
-		return app_error.NewAppError(http.StatusInternalServerError, "Failed to create/update the user", result.Error)
+		return app_error.NewAppError(http.StatusInternalServerError, "Failed to create/update the user", result.Error), nil
 	}
-	return nil
+
+	return nil, &user
 }
 
 func CreateInstallation(userId int64, installationId int64) *app_error.AppError {
@@ -64,4 +65,12 @@ func CreateInstallation(userId int64, installationId int64) *app_error.AppError 
 	tx.Commit()
 
 	return nil
+}
+
+func HasUserAlreadyInstalled(user *models.User) bool {
+	installations, repositories := models.FetchInstallationsAndRepositories(user)
+	if len(installations) != 0 && len(repositories) != 0 {
+		return true
+	}
+	return false
 }

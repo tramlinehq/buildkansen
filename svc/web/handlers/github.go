@@ -4,6 +4,7 @@ import (
 	"buildkansen/config"
 	"buildkansen/internal/core"
 	"buildkansen/internal/jobs"
+	"buildkansen/models"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -82,7 +83,7 @@ func GithubAuthCallback(c *gin.Context) {
 	}
 
 	uId, _ := strconv.ParseInt(user.UserID, 10, 64)
-	appError := core.CreateOrUpdateUser(uId, user.Name, user.Email)
+	appError, newUser := core.CreateOrUpdateUser(uId, user.Name, user.Email)
 	if appError != nil {
 		c.JSON(appError.Code, gin.H{"error": appError.Message})
 		return
@@ -92,21 +93,46 @@ func GithubAuthCallback(c *gin.Context) {
 	session.Set(config.C.AuthorizedUserInSessionKey, uId)
 	_ = session.Save()
 
+	if core.HasUserAlreadyInstalled(newUser) {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+
 	c.Redirect(http.StatusFound, installationUrl())
 }
 
 func GithubAppsCallback(c *gin.Context) {
 	fmt.Println("Received GitHub App callback:")
-
 	queryParams := c.Request.URL.Query()
+
+	for key, values := range queryParams {
+		fmt.Printf("%s: %v\n", key, values)
+	}
+
+	if queryParams.Get("error") == "access_denied" {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+
 	installationId, err := strconv.ParseInt(queryParams.Get("installation_id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse installation id"})
 		return
 	}
 
-	session := sessions.Default(c)
-	appError := core.CreateInstallation(session.Get(config.C.AuthorizedUserInSessionKey).(int64), installationId)
+	userValue, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not find a user in the session"})
+		return
+	}
+
+	user, _ := userValue.(models.User)
+	if core.HasUserAlreadyInstalled(&user) {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+
+	appError := core.CreateInstallation(user.Id, installationId)
 	if appError != nil {
 		c.JSON(appError.Code, gin.H{"error": appError.Message})
 		return
@@ -148,11 +174,18 @@ func GithubHook(c *gin.Context) {
 			return
 		}
 
-		if response.Action == "queued" {
+		switch response.Action {
+		case "queued":
 			fmt.Println("Received a queued workflow job event for tramline runner")
-			job := jobs.NewJob(response.Organization.Login, response.Repository.ID, response.Repository.HtmlUrl, installationId, runnerName, response.WorkflowJob.RunId)
-			job.Process()
-		} else if response.Action == "completed" {
+			jobs.NewJob(
+				response.Organization.Login,
+				response.Repository.ID,
+				response.Repository.HtmlUrl,
+				installationId,
+				runnerName,
+				response.WorkflowJob.RunId,
+			).Process()
+		case "completed":
 			fmt.Println("Received a completed workflow job event for tramline runner")
 			core.CompleteWorkflow(response.WorkflowJob.RunId, response.Repository.ID)
 		}

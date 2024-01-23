@@ -26,7 +26,7 @@ type Installation struct {
 	AccountID        int64
 	AccountLogin     string
 	AccountAvatarUrl string
-	UserId           int64
+	UserId           int64        `gorm:"primaryKey"`
 	User             User         `gorm:"foreignKey:UserId;references:Id"`
 	Repositories     []Repository `gorm:"foreignKey:InstallationId"`
 	CreatedAt        time.Time    `gorm:"autoCreateTime"`
@@ -109,15 +109,17 @@ func FetchInstallationsAndRepositories(user *User) ([]Installation, []Repository
 	return user.Installations, repositories
 }
 
-func UpsertUser(id int64, name string, email string) *gorm.DB {
+func UpsertUser(id int64, name string, email string) (*gorm.DB, User) {
 	u := User{Id: id, Name: name, Email: email}
-	return db.DB.Clauses(clause.OnConflict{
+	result := db.DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "id"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"email",
 			"name",
 		}),
 	}).Create(&u)
+
+	return result, u
 }
 
 type VMLock struct {
