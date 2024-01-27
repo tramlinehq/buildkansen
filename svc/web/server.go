@@ -5,6 +5,7 @@ import (
 	"buildkansen/log"
 	. "buildkansen/web/handlers"
 	mw "buildkansen/web/middleware"
+	"embed"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -12,7 +13,12 @@ import (
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
+	"html/template"
+	"net/http"
 )
+
+//go:embed assets views
+var emb embed.FS
 
 const (
 	appPort         = ":8081"
@@ -22,13 +28,13 @@ const (
 
 func Run() {
 	r := gin.Default()
+	templates := template.Must(template.New("").ParseFS(emb, "views/*.html"))
+	r.SetHTMLTemplate(templates)
+	r.StaticFS("/public", http.FS(emb))
 
 	store := cookie.NewStore([]byte(config.C.SessionSecret))
 	r.Use(sessions.Sessions(config.C.SessionName, store))
 	initGithubAuth()
-
-	r.Static("/assets", "./assets")
-	r.LoadHTMLGlob("views/*")
 
 	r.GET("/", mw.SetUserFromSessionMiddleware(), HandleHome)
 	r.GET("/logout", HandleLogout)
