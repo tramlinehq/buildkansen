@@ -1,4 +1,5 @@
 builds.tramline.app {
-  tls self_signed
-  root * /path/to/your/builds
+    encode gzip
+    tls services@tramline.app
+    reverse_proxy localhost:8080
 }

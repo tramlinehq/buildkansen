@@ -5,18 +5,53 @@
   tasks:
     - community.general.homebrew:
         name: caddy
+    - community.general.homebrew:
+        name: cirruslabs/cli/tart
 
-    - name: Create Caddyfile
+    - name: Read-write git checkout from github
+      ansible.builtin.git:
+        repo: git@github.com:tramlinehq/buildkansen.git
+        dest: /Users/administrator/buildkansen
+
+    - name: Copy .env.production to svc
+      ansible.builtin.copy:
+        src: ../svc/.env.production
+        dest: /Users/administrator/buildkansen/svc/.env
+        owner: administrator
+        group: everyone
+        mode: "0644"
+
+    - name: Copy .env.production to host
+      ansible.builtin.copy:
+        src: ../host/.env.production
+        dest: /Users/administrator/buildkansen/host/.env
+        owner: administrator
+        group: everyone
+        mode: "0644"
+
+    - name: Ensure /usr/local/bin directory exists
+      file:
+        path: /usr/local/bin
+        state: directory
+        mode: 0755
+        owner: administrator
+        group: everyone
+      become: yes
+
+    - name: Copy buildkansen binary to server
+      get_url:
+        url: "https://github.com/tramlinehq/buildkansen/releases/download/0.1/buildkansen-darwin-arm64"
+        dest: "/usr/local/bin/buildkansen"
+        mode: 0755
+        owner: administrator
+        group: everyone
+
+    - name: Create or update Caddyfile.j2
       template:
-        src: caddyfile.j2
-        dest: /etc/caddy/Caddyfile
+        src: Caddyfile.j2
+        dest: /opt/homebrew/etc/Caddyfile
       notify: Reload Caddy
-
-    - name: Start Caddy server
-      command: caddy start
-      poll: 0
-      async: 0
 
   handlers:
     - name: Reload Caddy
-      command: caddy reload
+      command: brew services reload caddy
