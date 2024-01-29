@@ -11,14 +11,22 @@
         name: cirruslabs/cli/tart
 
     - name: Read-write git checkout from github
-      ansible.builtin.git:
+      git:
         repo: git@github.com:tramlinehq/buildkansen.git
         dest: /Users/administrator/buildkansen
         accept_hostkey: yes
       become: no
 
+    - name: Generate an ssh key pair for vms
+      openssh_keypair:
+        path: "{{ ansible_env.HOME }}/.ssh/id_rsa_bullet"
+        type: rsa
+        size: 4096
+        force: no
+        state: present
+
     - name: Copy .env.production to svc
-      ansible.builtin.copy:
+      copy:
         src: ../svc/.env.production
         dest: /Users/administrator/buildkansen/svc/.env
         owner: administrator
@@ -26,7 +34,7 @@
         mode: "0644"
 
     - name: Copy .env.production to host
-      ansible.builtin.copy:
+      copy:
         src: ../host/.env.production
         dest: /Users/administrator/buildkansen/host/.env
         owner: administrator
@@ -54,16 +62,20 @@
       command: cp /Users/administrator/buildkansen/deployment/com.tramline.buildkansen.plist /Library/LaunchDaemons/com.tramline.buildkansen.plist
       become: yes
 
-    - name: Load com.tramline.buildkansen.plist using launchctl
+    - name: Unload com.tramline.buildkansen.plist via launchctl
+      command: "launchctl unload /Library/LaunchDaemons/com.tramline.buildkansen.plist"
+      become: yes
+
+    - name: Load com.tramline.buildkansen.plist via launchctl
       command: "launchctl load -w /Library/LaunchDaemons/com.tramline.buildkansen.plist"
       become: yes
 
-    - name: Run the command and check exit code
+    - name: Check if service successfully started
       command: "launchctl list com.tramline.buildkansen | awk -F '= |;' '/LastExitStatus/{print $2}'"
       become: yes
       register: launchctl_output
 
-    - name: Fail if exit code is non-zero
+    - name: Fail if service did not start
       fail:
         msg: "Could not start the service"
       when: launchctl_output.rc != 0

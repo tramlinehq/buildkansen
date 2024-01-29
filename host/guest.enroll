@@ -41,7 +41,9 @@ fi
 # ##################################################
 
 if [[ -f .env ]]; then
+  set -a
   source .env
+  set +a
   log_debug "Environment variables loaded from .env file."
 else
   log_debug "Error: .env file not found."

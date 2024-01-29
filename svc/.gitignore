@@ -1,6 +1,5 @@
 .env
 .env.production
-host/.env
 *.db
 app
 config/certs
