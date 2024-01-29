@@ -13,7 +13,7 @@
     <key>UserName</key>
     <string>administrator</string>
     <key>WorkingDirectory</key>
-    <string>/Users/administrator/buildkansen</string>
+    <string>/Users/administrator/buildkansen/svc</string>
     <key>StandardErrorPath</key>
     <string>/Users/administrator/buildkansen/stderr</string>
     <key>StandardOutPath</key>

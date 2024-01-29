@@ -12,6 +12,8 @@
       ansible.builtin.git:
         repo: git@github.com:tramlinehq/buildkansen.git
         dest: /Users/administrator/buildkansen
+        accept_hostkey: yes
+      become: no
 
     - name: Copy .env.production to svc
       ansible.builtin.copy:
