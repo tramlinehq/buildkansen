@@ -52,7 +52,7 @@ func Load() {
 		GithubAppInstallationBaseUrl: getEnv("GITHUB_NEW_INSTALLATION_URL", ""),
 		InternalApiToken:             getEnv("INTERNAL_API_TOKEN", ""),
 		AuthorizedUserInSessionKey:   "User ID",
-		ValidRunnerNames:             []string{"tramline-runner"},
+		ValidRunnerNames:             []string{"tramline-runner-md"},
 	}
 }
 

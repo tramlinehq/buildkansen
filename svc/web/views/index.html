@@ -41,17 +41,21 @@
 
         <p class="text-3xl underline">You're ready go!</p>
         <p class="text-lg">
-            Replace your existing GitHub Actions runners with any of the following alternatives, and run them in the usual manner.
+            Replace your existing GitHub Actions runners with the following alternatives, and run them in the
+            usual manner.
         </p>
 
+        {{range .runnerLabels}}
         <div class="mockup-code">
-            <pre class="text-success"><code>runs-on: tramline-ventura-small</code></pre>
+            <pre class="text-success"><code>runs-on: {{.}}</code></pre>
         </div>
-        <div class="mockup-code">
-            <pre class="text-info"><code>runs-on: tramline-ventura-large</code></pre>
-        </div>
+        {{end}}
 
-        <p class="text-sm text-accent underline">See example.</p>
+        <a class="text-sm text-accent underline"
+           href="https://github.com/tramlinehq/ueno/blob/main/.github/workflows/ios_debug_tramline_md.yml#L17"
+           target="_blank">
+            See example ↗
+        </a>
 
         <div class="divider divider-accent animate-pulse text-accent"></div>
 

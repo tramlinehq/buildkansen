@@ -15,7 +15,14 @@ func HandleHome(c *gin.Context) {
 		user, _ := userValue.(models.User)
 		installations, repositories := models.FetchInstallationsAndRepositories(&user)
 
-		c.HTML(http.StatusOK, "index.html", gin.H{"user": user, "installations": installations, "repositories": repositories})
+		headers := gin.H{
+			"user":          user,
+			"installations": installations,
+			"repositories":  repositories,
+			"runnerLabels":  config.C.ValidRunnerNames,
+		}
+
+		c.HTML(http.StatusOK, "index.html", headers)
 	} else {
 		c.HTML(http.StatusOK, "login.html", gin.H{})
 	}
