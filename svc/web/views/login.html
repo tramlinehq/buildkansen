@@ -13,7 +13,9 @@
     <link rel="mask-icon" href="/public/assets/safari-pinned-tab.svg" color="#5bbad5">
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
+    {{if .isProduction}}
     <script defer data-domain="builds.tramline.app" src="https://plausible.io/js/script.tagged-events.js"></script>
+    {{end}}
 </head>
 
 <body>

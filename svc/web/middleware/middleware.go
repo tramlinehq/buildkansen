@@ -47,6 +47,13 @@ func InjectGithubProvider() gin.HandlerFunc {
 	}
 }
 
+func SetEnv() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("isProduction", config.C.AppEnv == "production")
+		c.Next()
+	}
+}
+
 func SetUserFromSessionMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, err := getUserFromSession(c)

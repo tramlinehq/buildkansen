@@ -36,13 +36,13 @@ func Run() {
 	r.Use(sessions.Sessions(config.C.SessionName, store))
 	initGithubAuth()
 
-	r.GET("/", mw.SetUserFromSessionMiddleware(), HandleHome)
-	r.GET("/logout", HandleLogout)
-	r.GET("/github/auth", mw.InjectGithubProvider(), GithubAuth)
-	r.GET("/github/auth/register", mw.InjectGithubProvider(), GithubAuthCallback)
-	r.GET("/github/apps/register", mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)
-	r.POST("/github/apps/hook", GithubHook)
-	r.PUT("/v1/api/internal/vm/register", mw.InternalApiAuthMiddleware(), RegisterVM)
+	r.GET("/", mw.SetEnv(), mw.SetUserFromSessionMiddleware(), HandleHome)
+	r.GET("/logout", mw.SetEnv(), HandleLogout)
+	r.GET("/github/auth", mw.SetEnv(), mw.InjectGithubProvider(), GithubAuth)
+	r.GET("/github/auth/register", mw.SetEnv(), mw.InjectGithubProvider(), GithubAuthCallback)
+	r.GET("/github/apps/register", mw.SetEnv(), mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)
+	r.POST("/github/apps/hook", mw.SetEnv(), GithubHook)
+	r.PUT("/v1/api/internal/vm/register", mw.SetEnv(), mw.InternalApiAuthMiddleware(), RegisterVM)
 
 	var err error
 

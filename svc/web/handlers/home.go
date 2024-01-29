@@ -10,6 +10,7 @@ import (
 
 func HandleHome(c *gin.Context) {
 	userValue, exists := c.Get("user")
+	isProduction, _ := c.Get("isProduction")
 
 	if exists {
 		user, _ := userValue.(models.User)
@@ -24,7 +25,7 @@ func HandleHome(c *gin.Context) {
 
 		c.HTML(http.StatusOK, "index.html", headers)
 	} else {
-		c.HTML(http.StatusOK, "login.html", gin.H{})
+		c.HTML(http.StatusOK, "login.html", gin.H{"isProduction": isProduction.(bool)})
 	}
 }
 
