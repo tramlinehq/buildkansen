@@ -77,5 +77,5 @@ else
 fi
 
 log_output "[OWNER] 🏃 Starting runner on VM"
-nohup ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
+ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
 log_output "[OWNER] 🏃 Runner process started with PID: $!"
