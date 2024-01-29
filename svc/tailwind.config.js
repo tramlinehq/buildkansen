@@ -1,6 +1,6 @@
 module.exports = {
     plugins: [require("daisyui")],
-    content: ["./views/**/*.html"],
+    content: ["./web/views/**/*.html"],
     daisyui: {themes: ["dim", "dracula"]},
     theme: {
         fontFamily: {
