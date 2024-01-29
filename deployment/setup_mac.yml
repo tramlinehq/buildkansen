@@ -76,4 +76,4 @@
 
   handlers:
     - name: Reload Caddy
-      command: "brew services reload caddy"
+      command: "/opt/homebrew/bin/brew services reload caddy"
