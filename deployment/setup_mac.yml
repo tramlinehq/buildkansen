@@ -84,8 +84,6 @@
       template:
         src: Caddyfile.j2
         dest: /opt/homebrew/etc/Caddyfile
-      notify: Reload Caddy
 
-  handlers:
-    - name: Reload Caddy
+    - name: Reload caddy
       command: "/opt/homebrew/bin/brew services reload caddy"
