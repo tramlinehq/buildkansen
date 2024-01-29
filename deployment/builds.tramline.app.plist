@@ -6,9 +6,14 @@
     <string>builds.tramline.app</string>
     <key>LaunchOnlyOnce</key>
     <true/>
+    <key>EnvironmentVariables</key>
+    <dict>
+    <key>GIN_MODE</key>
+    <string>release</string>
+    </dict>
     <key>ProgramArguments</key>
     <array>
-      <string>buildkansen</string>
+    <string>buildkansen</string>
     </array>
     <key>UserName</key>
     <string>administrator</string>
