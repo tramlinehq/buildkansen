@@ -30,7 +30,7 @@
         src: ../svc/.env.production
         dest: /Users/administrator/buildkansen/svc/.env
         owner: administrator
-        group: everyone
+        group: staff
         mode: "0644"
 
     - name: Copy .env.production to host
@@ -38,7 +38,7 @@
         src: ../host/.env.production
         dest: /Users/administrator/buildkansen/host/.env
         owner: administrator
-        group: everyone
+        group: staff
         mode: "0644"
 
     - name: Ensure /usr/local/bin directory exists
