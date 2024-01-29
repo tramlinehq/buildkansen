@@ -3,26 +3,32 @@
 <plist version="1.0">
   <dict>
     <key>Label</key>
-    <string>builds.tramline.app</string>
+    <string>com.tramline.buildkansen</string>
+
     <key>LaunchOnlyOnce</key>
     <true/>
+
     <key>EnvironmentVariables</key>
     <dict>
     <key>GIN_MODE</key>
     <string>release</string>
     </dict>
-    <key>ProgramArguments</key>
-    <array>
+
+    <key>Program</key>
     <string>buildkansen</string>
-    </array>
+
     <key>UserName</key>
     <string>administrator</string>
+
     <key>WorkingDirectory</key>
     <string>/Users/administrator/buildkansen/svc</string>
+
     <key>StandardErrorPath</key>
-    <string>/Users/administrator/buildkansen/stderr</string>
+    <string>/Users/administrator/buildkansen-stderr.log</string>
+
     <key>StandardOutPath</key>
-    <string>/Users/administrator/buildkansen/stdout</string>
+    <string>/Users/administrator/buildkansen-stdout.log</string>
+
     <key>RunAtLoad</key>
     <true/>
   </dict>
