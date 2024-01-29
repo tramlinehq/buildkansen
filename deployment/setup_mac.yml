@@ -51,24 +51,22 @@
         group: everyone
 
     - name: Copy com.tramline.buildkansen.plist to /Library/LaunchDaemons
-      copy:
-        src: /Users/administrator/buildkansen/deployment/com.tramline.buildkansen.plist
-        dest: /Library/LaunchDaemons/com.tramline.buildkansen.plist
+      command: cp /Users/administrator/buildkansen/deployment/com.tramline.buildkansen.plist /Library/LaunchDaemons/com.tramline.buildkansen.plist
       become: yes
 
     - name: Load com.tramline.buildkansen.plist using launchctl
       command: "launchctl load -w /Library/LaunchDaemons/com.tramline.buildkansen.plist"
       become: yes
 
-    - name: Run the command
+    - name: Run the command and check exit code
       command: "launchctl list com.tramline.buildkansen | awk -F '= |;' '/LastExitStatus/{print $2}'"
-      register: command_result
       become: yes
-      set_fact:
-        exit_code: "{{ command_result.rc | int }}"
+      register: launchctl_output
+
+    - name: Fail if exit code is non-zero
       fail:
         msg: "Could not start the service"
-        when: exit_code == 0
+      when: launchctl_output.rc != 0
 
     - name: Create or update Caddyfile.j2
       template:

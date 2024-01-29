@@ -2,4 +2,7 @@ builds.tramline.app {
     encode gzip
     tls services@tramline.app
     reverse_proxy localhost:8081
+    timeout connect 10s
+    timeout header 30s
+    timeout body 2m
 }
