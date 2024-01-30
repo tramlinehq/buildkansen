@@ -2,13 +2,19 @@
 - name: Setup Mac Mini
   hosts: macmini
   vars:
-    release_version: v0.1.0
+    release_version: v0.1.1
 
   tasks:
     - community.general.homebrew:
         name: caddy
     - community.general.homebrew:
         name: cirruslabs/cli/tart
+    - community.general.homebrew:
+        name: colima
+    - community.general.homebrew:
+        name: docker
+    - community.general.homebrew:
+        name: docker-compose
 
     - name: Read-write git checkout from github
       git:
@@ -70,12 +76,12 @@
       command: "launchctl load -w /Library/LaunchDaemons/com.tramline.buildkansen.plist"
       become: yes
 
-    - name: Check if service successfully started
+    - name: Check if app service successfully started
       command: "launchctl list com.tramline.buildkansen | awk -F '= |;' '/LastExitStatus/{print $2}'"
       become: yes
       register: launchctl_output
 
-    - name: Fail if service did not start
+    - name: Fail if app service did not start
       fail:
         msg: "Could not start the service"
       when: launchctl_output.rc != 0
@@ -87,3 +93,32 @@
 
     - name: Reload caddy
       command: "/opt/homebrew/bin/brew services reload caddy"
+
+    - name: Start docker+colima
+      command: "colima start"
+      environment:
+        PATH: "/opt/homebrew/bin:{{ ansible_env.PATH }}"
+
+    - name: Copy com.tramline.buildkansen.monitoring.plist to /Library/LaunchDaemons
+      command: cp /Users/administrator/buildkansen/monitoring/com.tramline.buildkansen.monitoring.plist /Library/LaunchDaemons/com.tramline.buildkansen.monitoring.plist
+      become: yes
+
+    - name: Unload com.tramline.buildkansen.monitoring.plist via launchctl
+      command: "launchctl unload /Library/LaunchDaemons/com.tramline.buildkansen.plist"
+      become: yes
+
+    - name: Load com.tramline.buildkansen.monitoring.plist via launchctl
+      command: "launchctl load -w /Library/LaunchDaemons/com.tramline.buildkansen.plist"
+      become: yes
+
+    - name: Check if monitoring service successfully started
+      command: "launchctl list com.tramline.buildkansen.monitoring | awk -F '= |;' '/LastExitStatus/{print $2}'"
+      become: yes
+      register: launchctl_output
+
+    - name: Fail if monitoring service did not start
+      fail:
+        msg: "Could not start the service"
+      when: launchctl_output.rc != 0
+
+
