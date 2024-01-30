@@ -8,8 +8,8 @@ import (
 	"net/http"
 )
 
-func ValidateWorkflow(organizationId int64, repositoryId int64) (*models.Installation, *models.Repository, *app_error.AppError) {
-	i, err := models.FindEntity(models.Installation{}, organizationId, "account_id")
+func ValidateWorkflow(installationId int64, repositoryId int64) (*models.Installation, *models.Repository, *app_error.AppError) {
+	i, err := models.FindEntityById(models.Installation{}, installationId)
 	if err != nil {
 		fmt.Println("could not find an installation for this webhook")
 		return nil, nil, app_error.NewAppError(http.StatusNotFound, "Failed to find an installation for this webhook", err)

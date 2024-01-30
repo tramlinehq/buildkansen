@@ -14,7 +14,7 @@ const (
 )
 
 type Job struct {
-	OrganizationLogin    string
+	AccountLogin         string
 	RepositoryInternalId int64
 	RepositoryUrl        string
 	InstallationId       int64
@@ -22,9 +22,9 @@ type Job struct {
 	WorkflowRunId        int64
 }
 
-func NewJob(organizationLogin string, repositoryInternalId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
+func NewJob(accountLogin string, repositoryInternalId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
 	return &Job{
-		OrganizationLogin:    organizationLogin,
+		AccountLogin:         accountLogin,
 		RepositoryInternalId: repositoryInternalId,
 		RepositoryUrl:        repositoryUrl,
 		InstallationId:       installationId,
@@ -45,7 +45,7 @@ func (job *Job) Execute() error {
 	}
 
 	client, err := githubApi.NewClient(config.C.GithubAppId, job.InstallationId, config.C.GithubPrivateKeyBase64)
-	token, _, err := client.GetActionsRegistrationToken(job.OrganizationLogin, repo.(models.Repository).Name)
+	token, _, err := client.GetActionsRegistrationToken(job.AccountLogin, repo.(models.Repository).Name)
 	if err != nil {
 		fmt.Println("could not get registration token: ", err.Error())
 		return err
