@@ -7,19 +7,23 @@ packer {
   }
 }
 
+variable "xcode_xip" {
+  type = string
+}
+
 variable "xcode_version" {
   type    = string
-  default = "15.1"
+  default = "15.2"
 }
 
 variable "base_vm" {
   type    = string
-  default = "sonoma-vanilla"
+  default = "sonoma-base-md"
 }
 
 variable "vm_name" {
   type    = string
-  default = "runner-sonoma-vanilla"
+  default = "sonoma-runner-md"
 }
 
 variable "gha_version" {
@@ -29,7 +33,7 @@ variable "gha_version" {
 
 variable "android_sdk_tools_version" {
   type    = string
-  default = "9477386" # https://developer.android.com/studio/#command-tools
+  default = "11076708" # https://developer.android.com/studio/#command-tools
 }
 
 source "tart-cli" "tart" {
@@ -37,7 +41,7 @@ source "tart-cli" "tart" {
   vm_name      = "${var.vm_name}"
   cpu_count    = 4
   memory_gb    = 4
-  disk_size_gb = 60
+  disk_size_gb = 80
   ssh_password = "runner"
   ssh_username = "runner"
   ssh_timeout  = "120s"
@@ -109,22 +113,22 @@ build {
     ]
   }
 
+#  # prepare for xcode
+#  provisioner "file" {
+#    source      = pathexpand("~/Downloads/Xcode_${var.xcode_version}.xip")
+#    destination = "/Users/runner/Downloads/Xcode_${var.xcode_version}.xip"
+#  }
+
   # get xcode
   provisioner "shell" {
     inline = [
+      "sudo mkdir -p /usr/local/bin/",
       "echo 'export PATH=/usr/local/bin/:$PATH' >> ~/.zprofile",
       "source ~/.zprofile",
-      "wget --quiet https://github.com/RobotsAndPencils/xcodes/releases/latest/download/xcodes.zip",
-      "unzip xcodes.zip",
-      "rm xcodes.zip",
-      "chmod +x xcodes",
-      "sudo mkdir -p /usr/local/bin/",
-      "sudo mv xcodes /usr/local/bin/xcodes",
+      "brew install xcodesorg/made/xcodes",
       "xcodes version",
-      "wget --quiet https://storage.googleapis.com/xcodes-cache/Xcode_${var.xcode_version}.xip",
-      "xcodes install ${var.xcode_version} --experimental-unxip --path $PWD/Xcode_${var.xcode_version}.xip",
-      "sudo rm -rf ~/.Trash/*",
-      "xcodes select ${var.xcode_version}",
+      "wget '${var.xcode_xip}' -O /Users/runner/Downloads/Xcode_${var.xcode_version}.xip",
+      "xcodes install ${var.xcode_version} --experimental-unxip --path /Users/runner/Downloads/Xcode_${var.xcode_version}.xip --select --empty-trash",
       "xcodebuild -downloadAllPlatforms",
       "xcodebuild -runFirstLaunch",
     ]

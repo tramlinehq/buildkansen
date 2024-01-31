@@ -16,7 +16,7 @@ variable "ipsw" {
 
 variable "vm_name" {
   type = string
-  default = "sonoma-vanilla"
+  default = "sonoma-base-md"
 }
 
 source "tart-cli" "tart" {
