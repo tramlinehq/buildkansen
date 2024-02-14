@@ -12,10 +12,21 @@ if [ $# -eq 0 ]; then
 fi
 
 instance_name=$1
+vm_ip_address=$(tart ip "$instance_name")
 
 # ##################################################
 # Initialize script
 # ##################################################
+
+if [[ -f .env ]]; then
+  set -a
+  source .env
+  set +a
+  log_debug "Environment variables loaded from .env file."
+else
+  log_debug "Error: .env file not found."
+  exit 1
+fi
 
 trap "log_output \"[OWNER] 🚦 Stopping guest.unbind script\"; exit 1" SIGINT
 
@@ -29,8 +40,30 @@ stop_exit_code=$?
 tart delete "$instance_name"
 delete_exit_code=$?
 if [ $stop_exit_code -eq 0 ] && [ $delete_exit_code -eq 0 ]; then
-  log_output "[HOST] 💣 Guest machine: $instance_name successfully unbound!"
-  # TODO: publish to buildkansen deregister endpoint
+
+  # ##################################################
+  # Send updates to Buildkansen
+  # ##################################################
+
+  log_output "[HOST] 🙊 Telling buildkansen to purge the VM"
+  data='{
+    "vm_ip_address": "'"$vm_ip_address"'"
+  }'
+  response=$(curl -s -w "%{http_code}" --output /dev/null \
+                        -XPUT \
+                        -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+                        -H "Accept: application/json" \
+                        -H "Content-Type: application/json" \
+                        -d "$data" \
+                        "$INTERNAL_UNBIND_API_URL")
+  if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
+    log_output "[HOST] 💣 Guest machine: $instance_name successfully unbound!"
+    exit 0
+  else
+    log_debug "Error: Request failed with HTTP Status Code: $response"
+    log_output "[HOST] 💣 Failed to unbind guest machine from service, but VMs have been shut and deleted!"
+    exit 1
+  fi
 else
   log_output "[HOST] 🚨 Guest machine: $instance_name could not be found, hence did not unbind."
 fi

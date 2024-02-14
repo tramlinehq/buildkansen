@@ -145,6 +145,10 @@ func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
 	return db.DB.Create(&vm)
 }
 
+func DeleteVM(vmIPAddress string) *gorm.DB {
+	return db.DB.Delete(&VM{}, "vm_ip_address = ?", vmIPAddress)
+}
+
 func InaugurateVM() (*VMLock, error) {
 	vmLock := VMLock{Lock: db.DB.Begin(), VM: &VM{}}
 	defer func() {

@@ -42,7 +42,8 @@ func Run() {
 	r.GET("/github/auth/register", mw.SetEnv(), mw.InjectGithubProvider(), GithubAuthCallback)
 	r.GET("/github/apps/register", mw.SetEnv(), mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)
 	r.POST("/github/apps/hook", mw.SetEnv(), GithubHook)
-	r.PUT("/v1/api/internal/vm/register", mw.SetEnv(), mw.InternalApiAuthMiddleware(), RegisterVM)
+	r.PUT("/v1/api/internal/vm/bind", mw.SetEnv(), mw.InternalApiAuthMiddleware(), BindVM)
+	r.PUT("/v1/api/internal/vm/unbind", mw.SetEnv(), mw.InternalApiAuthMiddleware(), UnbindVM)
 
 	var err error
 

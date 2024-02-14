@@ -92,7 +92,7 @@ response=$(curl -s -w "%{http_code}" --output /dev/null \
                       -H "Accept: application/json" \
                       -H "Content-Type: application/json" \
                       -d "$data" \
-                      "$INTERNAL_API_URL")
+                      "$INTERNAL_BIND_API_URL")
 if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
   log_output "[HOST] 🚀 Guest machine enrolled and started!"
   exit 0
