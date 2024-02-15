@@ -6,6 +6,8 @@ import (
 	"buildkansen/models"
 	"fmt"
 	"os/exec"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -52,9 +54,20 @@ func (job *Job) Execute() error {
 	}
 
 	vm, err := models.FindEntity(models.VM{}, job.RunnerName, "github_runner_label")
+	if err != nil {
+		fmt.Println("could not find a runner for this label")
+		return err
+	}
+
+	newUUID := uuid.New()
+	uuidString := newUUID.String()
+	runnerName := vm.(models.VM).BaseVMName + "-" + uuidString
+
+	models.UpdateVM(vm.(models.VM).Id, runnerName)
 
 	args := []string{
-		"-i", vm.(models.VM).VMIPAddress,
+		"-b", vm.(models.VM).BaseVMName,
+		"-n", runnerName,
 		"-l", vm.(models.VM).GithubRunnerLabel,
 		"-t", *token.Token,
 		"-r", job.RepositoryUrl,
@@ -65,6 +78,7 @@ func (job *Job) Execute() error {
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("Error:", err)
+		return err
 	}
 	fmt.Println("kicked off the runner.kickoff script!")
 	return nil

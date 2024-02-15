@@ -10,7 +10,7 @@ import (
 )
 
 type vmRequest struct {
-	VMIPAddress       string `json:"vm_ip_address"`
+	BaseVMName        string `json:"base_vm_name"`
 	GithubRunnerLabel string `json:"github_runner_label"`
 }
 
@@ -20,26 +20,10 @@ func BindVM(c *gin.Context) {
 		return
 	}
 
-	result := models.CreateVM(response.VMIPAddress, response.GithubRunnerLabel)
+	result := models.CreateVM(response.BaseVMName, response.GithubRunnerLabel)
 	if result.Error != nil {
 		fmt.Println("Error create:", result.Error)
 		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Could not create VM"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
-}
-
-func UnbindVM(c *gin.Context) {
-	response := parseBody(c)
-	if response == nil {
-		return
-	}
-
-	result := models.DeleteVM(response.VMIPAddress)
-	if result.Error != nil {
-		fmt.Println("Error create:", result.Error)
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "Could not remove VM"})
 		return
 	}
 

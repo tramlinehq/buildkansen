@@ -1,0 +1,88 @@
+#!/bin/bash
+
+source base
+
+# ##################################################
+# Print usage and manage opts
+# ##################################################
+
+runner_name=""
+runner_label=""
+base_image=""
+
+function show_usage {
+  echo "Usage: $0 <flags>"
+  echo "  -i: Specify base image name"
+  echo "  -n: Specify runner name"
+  echo "  -l: Specify GitHub runner label"
+  echo "  -h: Show this help message"
+}
+
+while getopts "i:n:l::h" opt; do
+  case $opt in
+    i  ) base_image="$OPTARG";;
+    n  ) runner_name="$OPTARG";;
+    l  ) runner_label="$OPTARG";;
+    h  ) show_usage; exit 0;;
+    \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
+    *  ) log_debug "Unimplemented option: -$opt" >&2; exit 1;;
+  esac
+done
+
+source base.opts
+
+if [ -z "$runner_name" ] || [ -z "$runner_label" ]; then
+        log_debug 'Missing -n or -l' >&2
+        exit 1
+fi
+
+# ##################################################
+# Initialize script
+# ##################################################
+
+if [[ -f .env ]]; then
+  set -a
+  source .env
+  set +a
+  log_debug "Environment variables loaded from .env file."
+else
+  log_debug "Error: .env file not found."
+  exit 1
+fi
+
+trap "log_output \"[OWNER] 🚦 Stopping guest.vm.register script\"; exit 1" SIGINT
+
+# ##################################################
+# Clone tart VM if necessary
+# ##################################################
+
+# TODO: clone only if the base image is not already created
+log_output "[HOST] 💻 Cloning base macOS VM"
+tart clone "$base_image" "$runner_name"
+
+# ##################################################
+# Send updates to Buildkansen
+# ##################################################
+
+log_output "[HOST] 🙊 Telling buildkansen to register the new VM"
+data='{
+  "github_runner_label": "'"$runner_label"'",
+  "base_vm_name": "'"$runner_name"'"
+}'
+response=$(curl -s -w "%{http_code}" --output /dev/null \
+                      -XPUT \
+                      -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
+                      -H "Accept: application/json" \
+                      -H "Content-Type: application/json" \
+                      -d "$data" \
+                      "$INTERNAL_BIND_API_URL")
+if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
+  log_output "[HOST] 🚀 Guest vm is registered!"
+  exit 0
+else
+  log_debug "Error: Request failed with HTTP Status Code: $response"
+  log_output "[HOST] 💣 Failed to register guest vm!"
+  tart delete "$runner_name"
+  exit 1
+fi

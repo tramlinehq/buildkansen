@@ -83,7 +83,6 @@ done
 
 log_output "[HOST] 🙊 Telling buildkansen about the new VM"
 data='{
-  "vm_ip_address": "'"$VM_IP_ADDRESS"'",
   "github_runner_label": "'"$runner_label"'"
 }'
 response=$(curl -s -w "%{http_code}" --output /dev/null \

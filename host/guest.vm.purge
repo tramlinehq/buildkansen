@@ -1,0 +1,35 @@
+#!/bin/bash
+
+instance_name=""
+
+source base
+
+function show_usage {
+  echo "Usage: $0 <flags>"
+  echo "  -n: Specify runner VM name"
+  echo "  -h: Show this help message"
+}
+
+while getopts "n::h" opt; do
+  case $opt in
+    n  ) instance_name="$OPTARG";;
+    h  ) show_usage; exit 0;;
+    \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
+    :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
+  esac
+done
+
+source base.opts
+
+if [ -z "$instance_name" ] ; then
+        log_debug 'Missing -n' >&2
+        exit 1
+fi
+
+# ##################################################
+# Purge guest VM
+# ##################################################
+
+log_output "[HOST] 💤 Purging Guest machine: $instance_name"
+tart stop "$instance_name"
+tart delete "$instance_name"

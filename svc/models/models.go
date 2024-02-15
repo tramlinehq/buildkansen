@@ -58,6 +58,8 @@ const (
 type VM struct {
 	Id                int64 `gorm:"primaryKey"`
 	VMIPAddress       string
+	VMInstanceName    string
+	BaseVMName        string
 	GithubRunnerLabel string
 	ExternalRunId     sql.NullInt64
 	RepositoryId      sql.NullInt64
@@ -140,9 +142,13 @@ type VMLock struct {
 	VM   *VM
 }
 
-func CreateVM(vmIPAddress string, runnerLabel string) *gorm.DB {
-	vm := VM{Status: VMAvailable, VMIPAddress: vmIPAddress, GithubRunnerLabel: runnerLabel}
+func CreateVM(baseVMName string, runnerLabel string) *gorm.DB {
+	vm := VM{Status: VMAvailable, GithubRunnerLabel: runnerLabel, BaseVMName: baseVMName}
 	return db.DB.Create(&vm)
+}
+
+func UpdateVM(id int64, instanceName string) *gorm.DB {
+	return db.DB.Model(&VM{}).Where("id = ?", id).Update("vm_instance_name", instanceName)
 }
 
 func DeleteVM(vmIPAddress string) *gorm.DB {
@@ -166,9 +172,15 @@ func InaugurateVM() (*VMLock, error) {
 	return &vmLock, nil
 }
 
-func FreeVM(runId int64, repositoryInternalId int64) *gorm.DB {
-	vm := VM{}
-	return db.DB.Model(&vm).Where("external_run_id = ? AND repository_id = ?", runId, repositoryInternalId).Updates(map[string]interface{}{"external_run_id": gorm.Expr("NULL"), "repository_id": gorm.Expr("NULL"), "status": VMAvailable})
+func FreeVM(vm *VM) *gorm.DB {
+	updates := map[string]interface{}{
+		"external_run_id":  gorm.Expr("NULL"),
+		"repository_id":    gorm.Expr("NULL"),
+		"vm_instance_name": gorm.Expr("NULL"),
+		"status":           VMAvailable,
+	}
+
+	return db.DB.Model(vm).Updates(updates)
 }
 
 func (vmLock *VMLock) Commit(runId int64, repositoryInternalId int64) {

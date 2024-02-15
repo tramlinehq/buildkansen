@@ -7,24 +7,28 @@
 github_runner_registration_token=""
 github_runner_label=""
 github_runner_url=""
+vm_base_image=""
+runner_name=""
 
 source base
 
 function show_usage {
   echo "Usage: $0 <flags>"
+  echo "  -b: Specify VM base image"
+  echo "  -n: Specify runner VM name"
   echo "  -t: Specify GitHub registration token for runner"
   echo "  -l: Specify GitHub runner label(s)"
   echo "  -r: Specify GitHub repo url / runner url"
-  echo "  -i: Specify VM IP address"
   echo "  -h: Show this help message"
 }
 
-while getopts "t:l:r:i::h" opt; do
+while getopts "b:n:t:l:r::h" opt; do
   case $opt in
+    b  ) vm_base_image="$OPTARG";;
+    n  ) runner_name="$OPTARG";;
     t  ) github_runner_registration_token="$OPTARG";;
     l  ) github_runner_label="$OPTARG";;
     r  ) github_runner_url="$OPTARG";;
-    i  ) vm_ip_address="$OPTARG";;
     h  ) show_usage; exit 0;;
     \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
     :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
@@ -33,8 +37,8 @@ done
 
 source base.opts
 
-if [ -z "$github_runner_registration_token" ] || [ -z "$github_runner_label" ] || [ -z "$github_runner_url" ]; then
-        log_debug 'Missing -t or -l or -r' >&2
+if [ -z "$vm_base_image" ] || [ -z "$runner_name" ] || [ -z "$github_runner_registration_token" ] || [ -z "$github_runner_label" ] || [ -z "$github_runner_url" ]; then
+        log_debug 'Missing -b or -n or -t or -l or -r' >&2
         exit 1
 fi
 
@@ -53,19 +57,37 @@ fi
 trap "log_output \"[OWNER] 🚦 Stopping github.runner.kickoff script\"; exit 1" SIGINT
 
 # ##################################################
+# Boot up tart VM
+# ##################################################
+
+log_output "[HOST] 💻 Launching macOS VM"
+tart clone "$vm_base_image" "$runner_name"
+trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $runner_name; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
+tart run --no-graphics "$runner_name" >/dev/null 2>&1 &
+
+log_output "[HOST] 💤 Waiting for VM to boot"
+VM_IP_ADDRESS=$(tart ip "$runner_name")
+until [[ "$VM_IP_ADDRESS" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
+	VM_IP_ADDRESS=$(tart ip "$runner_name")
+	sleep 1
+done
+
+SSHPASS=runner sshpass -e ssh-copy-id -i "$VM_SSH_KEY_PATH" "$VM_USERNAME@$VM_IP_ADDRESS"
+
+# ##################################################
 # Start runner on guest VM
 # ##################################################
 
 log_output "[MA] 💤 Waiting for SSH to be available on VM"
-until [ "$(ssh -q -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=2 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$vm_ip_address" pwd)" ]; do
+until [ "$(ssh -q -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=5 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$VM_IP_ADDRESS" pwd)" ]; do
   sleep 1
 done
 
 log_output "[OWNER] 🔨 Configuring runner on VM"
-ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" \
+ssh -q "$VM_USERNAME@$VM_IP_ADDRESS" -i "$VM_SSH_KEY_PATH" \
   "./actions-runner/config.sh --url $github_runner_url \
   --token $github_runner_registration_token \
-  --ephemeral --name $RUNNER_NAME \
+  --ephemeral --name $runner_name \
   --labels $github_runner_label \
   --unattended --replace" \
   >/dev/null
@@ -77,5 +99,5 @@ else
 fi
 
 log_output "[OWNER] 🏃 Starting runner on VM"
-ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
+ssh -q "$VM_USERNAME@$VM_IP_ADDRESS" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
 log_output "[OWNER] 🏃 Runner process started with PID: $!"

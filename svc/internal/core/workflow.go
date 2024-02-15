@@ -6,6 +6,12 @@ import (
 	"buildkansen/models"
 	"fmt"
 	"net/http"
+	"os/exec"
+)
+
+const (
+	purgeScript    = "./guest.vm.purge"
+	purgeScriptDir = "../host"
 )
 
 func ValidateWorkflow(installationId int64, repositoryId int64) (*models.Installation, *models.Repository, *app_error.AppError) {
@@ -38,7 +44,26 @@ func FindValidRunnerName(runnerLabels []string) (string, *app_error.AppError) {
 }
 
 func CompleteWorkflow(runId int64, repositoryInternalId int64) *app_error.AppError {
-	result := models.FreeVM(runId, repositoryInternalId)
+	vm, err := models.FindEntity(models.VM{}, runId, "external_run_id")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return app_error.NewAppError(http.StatusNotFound, "No valid runner was found", err)
+	}
+	vmModel := vm.(models.VM)
+
+	args := []string{
+		"-n", vmModel.VMInstanceName,
+	}
+	fmt.Printf("Executing purge script with following args: %v", args)
+	cmd := exec.Command(purgeScript, args...)
+	cmd.Dir = purgeScriptDir
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return app_error.NewAppError(http.StatusInternalServerError, "Failed to purge the VM", err)
+	}
+
+	result := models.FreeVM(&vmModel)
 	if result.Error != nil {
 		return app_error.NewAppError(http.StatusInternalServerError, "Failed to free the VM", result.Error)
 	}
