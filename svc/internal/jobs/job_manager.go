@@ -41,7 +41,7 @@ func (jm *jobManager) worker(id int) {
 	for {
 		vmLock, err := models.InaugurateVM()
 		if err != nil {
-			fmt.Printf("No available VMs")
+			fmt.Printf("no available VMs")
 			time.Sleep(workerWaitTimeNs)
 			continue
 		}
@@ -51,7 +51,7 @@ func (jm *jobManager) worker(id int) {
 			if ok {
 				err := job.Execute()
 				if err != nil {
-					fmt.Printf("Worker %d could not process job: %+v\n", id, job)
+					fmt.Printf("worker %d could not process job: %+v\n", id, job)
 					vmLock.Close()
 					continue
 				}
@@ -59,11 +59,11 @@ func (jm *jobManager) worker(id int) {
 				vmLock.Commit(job.WorkflowRunId, job.RepositoryInternalId)
 			}
 
-			fmt.Printf("Worker %d processed job: %+v\n", id, job)
+			fmt.Printf("worker %d processed job: %+v\n", id, job)
 			continue
 		case <-time.After(workerWaitTimeNs):
 			vmLock.Close()
-			fmt.Printf("No job found for %d nanoseconds, trying again\n", workerWaitTimeNs)
+			fmt.Printf("no job found for %d nanoseconds, trying again\n", workerWaitTimeNs)
 		}
 	}
 }

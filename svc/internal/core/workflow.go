@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	purgeScript    = "./guest.vm.purge"
+	purgeScript    = "./guest.vm.down"
 	purgeScriptDir = "../host"
 )
 

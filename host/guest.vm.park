@@ -1,14 +1,15 @@
 #!/bin/bash
 
+script_name=$(basename "$0")
 source base
+source_env "$script_name"
+base_image=""
+runner_name=""
+runner_label=""
 
 # ##################################################
 # Print usage and manage opts
 # ##################################################
-
-runner_name=""
-runner_label=""
-base_image=""
 
 function show_usage {
   echo "Usage: $0 <flags>"
@@ -38,34 +39,42 @@ if [ -z "$runner_name" ] || [ -z "$runner_label" ]; then
 fi
 
 # ##################################################
-# Initialize script
-# ##################################################
-
-if [[ -f .env ]]; then
-  set -a
-  source .env
-  set +a
-  log_debug "Environment variables loaded from .env file."
-else
-  log_debug "Error: .env file not found."
-  exit 1
-fi
-
-trap "log_output \"[OWNER] 🚦 Stopping guest.vm.register script\"; exit 1" SIGINT
-
-# ##################################################
 # Clone tart VM if necessary
 # ##################################################
 
-# TODO: clone only if the base image is not already created
 log_output "[HOST] 💻 Cloning base macOS VM"
 tart clone "$base_image" "$runner_name"
+
+# ##################################################
+# Boot up tart VM
+# ##################################################
+
+log_output "[HOST] 💻 Launching base VM"
+trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $runner_name; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
+tart run --no-graphics "$runner_name" >/dev/null 2>&1 &
+
+log_output "[HOST] 💤 Waiting for base VM to boot"
+vm_ip_address=$(tart ip "$runner_name")
+until [[ "$vm_ip_address" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
+	vm_ip_address=$(tart ip "$runner_name")
+	sleep 1
+done
+
+log_output "[HOST] 💻 Copying over our host SSH public key; this requires a password..."
+ssh-copy-id -i "$VM_SSH_KEY_PATH" "$VM_USERNAME@$vm_ip_address"
+log_output "[HOST] 💤 Waiting for SSH to be available on the VM"
+until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$vm_ip_address" pwd)" ]; do
+  sleep 1
+done
+
+log_output "[HOST] 💻 Stopping the base VM"
+#tart stop "$runner_name"
 
 # ##################################################
 # Send updates to Buildkansen
 # ##################################################
 
-log_output "[HOST] 🙊 Telling buildkansen to register the new VM"
+log_output "[HOST] 🙊 Telling buildkansen to park a slot for the new VM"
 data='{
   "github_runner_label": "'"$runner_label"'",
   "base_vm_name": "'"$runner_name"'"

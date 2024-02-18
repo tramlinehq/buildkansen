@@ -5,7 +5,7 @@ DEBUGLOGFILE=debug.log
 RUNNER_NAME=TramlineRunner
 
 function log_output {
-	echo "$(date "+%Y/%m/%d %H:%M:%S") [${RUN_ID:-PREPARING}] $1" >> $LOGFILE
+	echo "$(date "+%Y/%m/%d %H:%M:%S") $1" >> $LOGFILE
 }
 
 function log_debug {
@@ -16,6 +16,18 @@ function stream_output {
 	while read -r line; do
 		log_output "$line"
 	done
+}
+
+function source_env {
+  if [[ -f .env ]]; then
+    source .env
+    log_debug "Environment variables loaded from .env file."
+  else
+    log_debug "Error: .env file not found."
+    exit 1
+  fi
+
+  trap 'log_output "[OWNER] 🚦 Stopping $1 script"; exit 1' SIGINT
 }
 
 eval "$(/opt/homebrew/bin/brew shellenv)"

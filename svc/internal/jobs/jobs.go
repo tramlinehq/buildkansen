@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	kickOffScript    = "./runner.kickoff"
+	kickOffScript    = "./guest.vm.up"
 	kickOffScriptDir = "../host"
 )
 
@@ -54,6 +54,7 @@ func (job *Job) Execute() error {
 	}
 
 	vm, err := models.FindEntity(models.VM{}, job.RunnerName, "github_runner_label")
+	vmModel := vm.(models.VM)
 	if err != nil {
 		fmt.Println("could not find a runner for this label")
 		return err
@@ -61,18 +62,17 @@ func (job *Job) Execute() error {
 
 	newUUID := uuid.New()
 	uuidString := newUUID.String()
-	runnerName := vm.(models.VM).BaseVMName + "-" + uuidString
-
-	models.UpdateVM(vm.(models.VM).Id, runnerName)
+	runnerName := vmModel.BaseVMName + "-" + uuidString
+	models.UpdateVM(vmModel.Id, runnerName)
 
 	args := []string{
-		"-b", vm.(models.VM).BaseVMName,
+		"-b", vmModel.BaseVMName,
 		"-n", runnerName,
-		"-l", vm.(models.VM).GithubRunnerLabel,
+		"-l", vmModel.GithubRunnerLabel,
 		"-t", *token.Token,
 		"-r", job.RepositoryUrl,
 	}
-	fmt.Printf("Executing runner script with following args: %v", args)
+	fmt.Printf("executing runner script with following args: %v", args)
 	cmd := exec.Command(kickOffScript, args...)
 	cmd.Dir = kickOffScriptDir
 	err = cmd.Run()
@@ -80,6 +80,7 @@ func (job *Job) Execute() error {
 		fmt.Println("Error:", err)
 		return err
 	}
-	fmt.Println("kicked off the runner.kickoff script!")
+	fmt.Printf("kicked off the %s script!", kickOffScript)
+
 	return nil
 }

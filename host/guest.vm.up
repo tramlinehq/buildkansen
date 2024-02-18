@@ -1,104 +1,88 @@
 #!/bin/bash
 
+script_name=$(basename "$0")
 source base
+source_env "$script_name"
+runner_name=""
+vm_base_image=""
+github_runner_url=""
+github_runner_label=""
+github_runner_registration_token=""
 
 # ##################################################
 # Print usage and manage opts
 # ##################################################
 
-runner_name=""
-runner_label=""
-
 function show_usage {
   echo "Usage: $0 <flags>"
-  echo "  -i: Specify base image name"
-  echo "  -n: Specify runner name"
-  echo "  -l: Specify GitHub runner label"
+  echo "  -b: Specify VM base image"
+  echo "  -n: Specify runner VM name"
+  echo "  -t: Specify GitHub registration token for runner"
+  echo "  -l: Specify GitHub runner label(s)"
+  echo "  -r: Specify GitHub repo url / runner url"
   echo "  -h: Show this help message"
 }
 
-while getopts "i:n:l::h" opt; do
+while getopts "b:n:t:l:r::h" opt; do
   case $opt in
-    i  ) base_image="$OPTARG";;
+    b  ) vm_base_image="$OPTARG";;
     n  ) runner_name="$OPTARG";;
-    l  ) runner_label="$OPTARG";;
+    t  ) github_runner_registration_token="$OPTARG";;
+    l  ) github_runner_label="$OPTARG";;
+    r  ) github_runner_url="$OPTARG";;
     h  ) show_usage; exit 0;;
     \? ) log_debug "Invalid option: -$OPTARG"; show_usage; exit 1;;
     :  ) log_debug "Option -$OPTARG requires an argument."; show_usage; exit 1;;
-    *  ) log_debug "Unimplemented option: -$opt" >&2; exit 1;;
   esac
 done
 
 source base.opts
 
-if [ -z "$runner_name" ] || [ -z "$runner_label" ]; then
-        log_debug 'Missing -n or -l' >&2
+if [ -z "$vm_base_image" ] || [ -z "$runner_name" ] || [ -z "$github_runner_registration_token" ] || [ -z "$github_runner_label" ] || [ -z "$github_runner_url" ]; then
+        log_debug 'Missing -b or -n or -t or -l or -r' >&2
         exit 1
 fi
-
-# ##################################################
-# Initialize script
-# ##################################################
-
-if [[ -f .env ]]; then
-  set -a
-  source .env
-  set +a
-  log_debug "Environment variables loaded from .env file."
-else
-  log_debug "Error: .env file not found."
-  exit 1
-fi
-
-trap "log_output \"[OWNER] 🚦 Stopping guest.enroll script\"; exit 1" SIGINT
 
 # ##################################################
 # Boot up tart VM
 # ##################################################
 
 log_output "[HOST] 💻 Launching macOS VM"
-INSTANCE_NAME="${runner_name}-$(uuidgen)"
-tart clone "$base_image" "$INSTANCE_NAME"
-trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $INSTANCE_NAME; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
-tart run --no-graphics "$INSTANCE_NAME" >/dev/null 2>&1 &
+tart clone "$vm_base_image" "$runner_name"
+trap 'log_output "[HOST] 🪓 Killing the VM"; tart delete $runner_name; log_output "[HOST] 🚦 Stopping script"; exit 1' SIGINT
+tart run --no-graphics "$runner_name" >/dev/null 2>&1 &
 
 log_output "[HOST] 💤 Waiting for VM to boot"
-VM_IP_ADDRESS=$(tart ip "$INSTANCE_NAME")
-until [[ "$VM_IP_ADDRESS" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
-	VM_IP_ADDRESS=$(tart ip "$INSTANCE_NAME")
+vm_ip_address=$(tart ip "$runner_name")
+until [[ "$vm_ip_address" =~ ^([0-9]+\.){3}[0-9]+$ ]]; do
+	vm_ip_address=$(tart ip "$runner_name")
 	sleep 1
 done
 
-log_output "[HOST] 💻 Copying over our host SSH public key; this requires a password..."
-ssh-copy-id -i "$VM_SSH_KEY_PATH" "$VM_USERNAME@$VM_IP_ADDRESS"
+# ##################################################
+# Start runner on guest VM
+# ##################################################
 
-log_output "[HOST] 💤 Waiting for SSH to be available on the VM"
-until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$VM_IP_ADDRESS" pwd)" ]; do
+log_output "[MA] 💤 Waiting for SSH to be available on VM"
+until [ "$(ssh -q -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=5 -o StrictHostKeyChecking=no -oBatchMode=yes "$VM_USERNAME@$vm_ip_address" pwd)" ]; do
   sleep 1
 done
 
-# ##################################################
-# Send updates to Buildkansen
-# ##################################################
-
-log_output "[HOST] 🙊 Telling buildkansen about the new VM"
-data='{
-  "github_runner_label": "'"$runner_label"'"
-}'
-response=$(curl -s -w "%{http_code}" --output /dev/null \
-                      -XPUT \
-                      -H "Authorization: Bearer $INTERNAL_API_TOKEN" \
-                      -H "Accept: application/json" \
-                      -H "Content-Type: application/json" \
-                      -d "$data" \
-                      "$INTERNAL_BIND_API_URL")
-if [[ "$response" -ge 200 && "$response" -lt 300 ]]; then
-  log_output "[HOST] 🚀 Guest machine enrolled and started!"
-  exit 0
+log_output "[OWNER] 🔨 Configuring runner on VM"
+ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" \
+  "./actions-runner/config.sh --url $github_runner_url \
+  --token $github_runner_registration_token \
+  --ephemeral --name $runner_name \
+  --labels $github_runner_label \
+  --unattended --replace" \
+  >/dev/null
+if [ $? -eq 0 ]; then
+  log_output "[OWNER] 🏃 Configured runner successfully."
 else
-  log_debug "Error: Request failed with HTTP Status Code: $response"
-  log_output "[HOST] 💣 Failed to enroll guest machine!"
-  tart stop "$INSTANCE_NAME"
-  tart delete "$INSTANCE_NAME"
+  log_output "[OWNER] 🏃 Configuration of runner failed."
   exit 1
 fi
+
+log_output "[OWNER] 🏃 Starting runner on VM"
+ssh -q "$VM_USERNAME@$vm_ip_address" -i "$VM_SSH_KEY_PATH" "source ~/.zprofile && ./actions-runner/run.sh" 2>&1 | sed -nru 's/^(.+)$/[GUEST] 📀 \1/p' | stream_output &
+log_output "[OWNER] 🏃 Runner process started with PID: $!"

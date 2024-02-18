@@ -1,8 +1,11 @@
 #!/bin/bash
 
+source base
 instance_name=""
 
-source base
+# ##################################################
+# Print usage and manage opts
+# ##################################################
 
 function show_usage {
   echo "Usage: $0 <flags>"
@@ -33,3 +36,4 @@ fi
 log_output "[HOST] 💤 Purging Guest machine: $instance_name"
 tart stop "$instance_name"
 tart delete "$instance_name"
+log_output "[HOST] 💣 Purged Guest machine: $instance_name"

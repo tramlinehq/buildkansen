@@ -36,9 +36,3 @@ func HandleLogout(c *gin.Context) {
 
 	c.Redirect(http.StatusFound, "/")
 }
-
-func HandleLogin() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Redirect(http.StatusFound, "/")
-	}
-}

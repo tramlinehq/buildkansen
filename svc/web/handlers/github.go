@@ -159,43 +159,45 @@ func GithubHook(c *gin.Context) {
 
 	installationId := response.Installation.ID
 
-	if response.WorkflowJob.ID != 0 {
-		fmt.Println("Received a workflow job event")
-
-		runnerName, appError := core.FindValidRunnerName(response.WorkflowJob.Labels)
-		if appError != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": appError.Message})
-			return
+	if response.WorkflowJob.ID == 0 {
+		if installationId != 0 && response.Installation.Account.ID != 0 {
+			fmt.Println("Received an installation webhook, we don't handle this explicitly.")
+		} else {
+			fmt.Println("Received a webhook we don't handle explicitly.")
 		}
 
-		installation, repository, appError := core.ValidateWorkflow(installationId, response.Repository.ID)
-		if appError != nil {
-			c.JSON(appError.Code, gin.H{"error": appError.Message})
-			return
-		}
-
-		switch response.Action {
-		case "queued":
-			fmt.Println("Received a queued workflow job event for tramline runner")
-			jobs.NewJob(
-				installation.AccountLogin,
-				repository.InternalId,
-				response.Repository.HtmlUrl,
-				installationId,
-				runnerName,
-				response.WorkflowJob.RunId,
-			).Process()
-		case "completed":
-			fmt.Println("Received a completed workflow job event for tramline runner")
-			core.CompleteWorkflow(response.WorkflowJob.RunId, repository.InternalId)
-		}
-	} else if installationId != 0 && response.Installation.Account.ID != 0 {
-		fmt.Println("Received an installation event")
-	} else {
-		fmt.Println("Received a webhook, don't know how to handle rn")
+		return
 	}
 
-	fmt.Printf("Received GitHub App webhook event: %s", response.Action)
+	fmt.Printf("Received a workflow job webhook: %s", response.Action)
+	runnerName, appError := core.FindValidRunnerName(response.WorkflowJob.Labels)
+	if appError != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": appError.Message})
+		return
+	}
+
+	installation, repository, appError := core.ValidateWorkflow(installationId, response.Repository.ID)
+	if appError != nil {
+		c.JSON(appError.Code, gin.H{"error": appError.Message})
+		return
+	}
+
+	switch response.Action {
+	case "queued":
+		fmt.Println("Processing the 'queued' workflow job...")
+		jobs.NewJob(
+			installation.AccountLogin,
+			repository.InternalId,
+			response.Repository.HtmlUrl,
+			installationId,
+			runnerName,
+			response.WorkflowJob.RunId,
+		).Process()
+	case "completed":
+		fmt.Println("Processing 'completed' workflow job...")
+		core.CompleteWorkflow(response.WorkflowJob.RunId, repository.InternalId)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
