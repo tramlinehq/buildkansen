@@ -26,14 +26,14 @@ variable "vm_name" {
   default = "sonoma-runner-md"
 }
 
-variable "gha_version" {
-  type    = string
-  default = "2.311.0"
-}
-
 variable "android_sdk_tools_version" {
   type    = string
   default = "11076708" # https://developer.android.com/studio/#command-tools
+}
+
+variable "gha_version" {
+  type    = string
+  default = "2.313.0" # https://api.github.com/repos/actions/runner/releases/latest
 }
 
 source "tart-cli" "tart" {
@@ -41,7 +41,7 @@ source "tart-cli" "tart" {
   vm_name      = "${var.vm_name}"
   cpu_count    = 4
   memory_gb    = 4
-  disk_size_gb = 80
+  disk_size_gb = 100
   ssh_password = "runner"
   ssh_username = "runner"
   ssh_timeout  = "120s"
@@ -113,11 +113,6 @@ build {
     ]
   }
 
-#  # prepare for xcode
-#  provisioner "file" {
-#    source      = pathexpand("~/Downloads/Xcode_${var.xcode_version}.xip")
-#    destination = "/Users/runner/Downloads/Xcode_${var.xcode_version}.xip"
-#  }
 
   # get xcode
   provisioner "shell" {
@@ -206,6 +201,16 @@ build {
       "sudo add-certificate AppleWWDRCAG3.cer",
       "sudo add-certificate DeveloperIDG2CA.cer",
       "rm add-certificate* *.cer"
+    ]
+  }
+
+  # configure ssh
+  provisioner "shell" {
+    inline = [
+      "mkdir -p ~/.ssh",
+      "touch ~/.ssh/authorized_keys",
+      "chmod 700 ~/.ssh",
+      "chmod 600 ~/.ssh/authorized_keys",
     ]
   }
 }
