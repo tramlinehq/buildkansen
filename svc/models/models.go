@@ -147,14 +147,6 @@ func CreateVM(baseVMName string, runnerLabel string) *gorm.DB {
 	return db.DB.Create(&vm)
 }
 
-func UpdateVM(id int64, instanceName string) *gorm.DB {
-	return db.DB.Model(&VM{}).Where("id = ?", id).Update("vm_instance_name", instanceName)
-}
-
-func DeleteVM(vmIPAddress string) *gorm.DB {
-	return db.DB.Delete(&VM{}, "vm_ip_address = ?", vmIPAddress)
-}
-
 func InaugurateVM() (*VMLock, error) {
 	vmLock := VMLock{Lock: db.DB.Begin(), VM: &VM{}}
 	defer func() {
@@ -181,6 +173,10 @@ func FreeVM(vm *VM) *gorm.DB {
 	}
 
 	return db.DB.Model(vm).Updates(updates)
+}
+
+func (vmLock *VMLock) Assign(instanceName string) *gorm.DB {
+	return vmLock.Lock.Model(&vmLock.VM).Update("vm_instance_name", instanceName)
 }
 
 func (vmLock *VMLock) Commit(runId int64, repositoryInternalId int64) {

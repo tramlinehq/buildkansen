@@ -68,7 +68,7 @@ until [ "$(ssh -q  -i "$VM_SSH_KEY_PATH" -o ConnectTimeout=1 -o StrictHostKeyChe
 done
 
 log_output "[HOST] 💻 Stopping the base VM"
-#tart stop "$runner_name"
+tart stop "$runner_name"
 
 # ##################################################
 # Send updates to Buildkansen

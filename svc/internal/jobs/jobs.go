@@ -39,7 +39,7 @@ func (job *Job) Process() {
 	jobQueueManager.enqueueJob(*job)
 }
 
-func (job *Job) Execute() error {
+func (job *Job) Execute(vmLock *models.VMLock) error {
 	repo, err := models.FindEntity(models.Repository{}, job.RepositoryInternalId, "internal_id")
 	if err != nil {
 		fmt.Println("could not find a repository for this webhook")
@@ -53,22 +53,19 @@ func (job *Job) Execute() error {
 		return err
 	}
 
-	vm, err := models.FindEntity(models.VM{}, job.RunnerName, "github_runner_label")
-	vmModel := vm.(models.VM)
-	if err != nil {
-		fmt.Println("could not find a runner for this label")
-		return err
-	}
-
 	newUUID := uuid.New()
 	uuidString := newUUID.String()
-	runnerName := vmModel.BaseVMName + "-" + uuidString
-	models.UpdateVM(vmModel.Id, runnerName)
+	runnerName := vmLock.VM.BaseVMName + "-" + uuidString
+	result := vmLock.Assign(runnerName)
+	if result.Error != nil {
+		fmt.Printf("could not update runner for VM: %s", runnerName)
+		return result.Error
+	}
 
 	args := []string{
-		"-b", vmModel.BaseVMName,
+		"-b", vmLock.VM.BaseVMName,
 		"-n", runnerName,
-		"-l", vmModel.GithubRunnerLabel,
+		"-l", vmLock.VM.GithubRunnerLabel,
 		"-t", *token.Token,
 		"-r", job.RepositoryUrl,
 	}

@@ -49,7 +49,7 @@ func (jm *jobManager) worker(id int) {
 		select {
 		case job, ok := <-jm.jobQueue:
 			if ok {
-				err := job.Execute()
+				err := job.Execute(vmLock)
 				if err != nil {
 					fmt.Printf("worker %d could not process job: %+v\n", id, job)
 					vmLock.Close()
