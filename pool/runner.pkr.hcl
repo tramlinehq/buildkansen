@@ -113,7 +113,6 @@ build {
     ]
   }
 
-
   # get xcode
   provisioner "shell" {
     inline = [
@@ -143,41 +142,41 @@ build {
     ]
   }
 
-  # configure ruby
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "asdf install ruby 3.2.2",
-      "asdf global ruby 3.2.2",
-      "gem update --system",
-    ]
-  }
+  # # configure ruby
+  # provisioner "shell" {
+  #   inline = [
+  #     "source ~/.zprofile",
+  #     "asdf install ruby 3.2.2",
+  #     "asdf global ruby 3.2.2",
+  #     "gem update --system",
+  #   ]
+  # }
 
-  # configure cocoapods
+  # configure cocoapods system deps
   provisioner "shell" {
     inline = [
       "source ~/.zprofile",
       "brew install libimobiledevice ideviceinstaller ios-deploy fastlane carthage",
-      "gem install cocoapods",
-      "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
+      # "gem install cocoapods",
+      # "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
     ]
   }
 
   # configure flutter
-  provisioner "shell" {
-    inline = [
-      "source ~/.zprofile",
-      "echo 'export FLUTTER_HOME=$HOME/flutter' >> ~/.zprofile",
-      "echo 'export PATH=$HOME/flutter:$HOME/flutter/bin/:$HOME/flutter/bin/cache/dart-sdk/bin:$PATH' >> ~/.zprofile",
-      "source ~/.zprofile",
-      "git clone https://github.com/flutter/flutter.git $FLUTTER_HOME",
-      "cd $FLUTTER_HOME",
-      "git checkout stable",
-      "flutter doctor --android-licenses",
-      "flutter doctor",
-      "flutter precache",
-    ]
-  }
+  # provisioner "shell" {
+  #   inline = [
+  #     "source ~/.zprofile",
+  #     "echo 'export FLUTTER_HOME=$HOME/flutter' >> ~/.zprofile",
+  #     "echo 'export PATH=$HOME/flutter:$HOME/flutter/bin/:$HOME/flutter/bin/cache/dart-sdk/bin:$PATH' >> ~/.zprofile",
+  #     "source ~/.zprofile",
+  #     "git clone https://github.com/flutter/flutter.git $FLUTTER_HOME",
+  #     "cd $FLUTTER_HOME",
+  #     "git checkout stable",
+  #     "flutter doctor --android-licenses",
+  #     "flutter doctor",
+  #     "flutter precache",
+  #   ]
+  # }
 
   # useful utils for mobile development
   provisioner "shell" {
