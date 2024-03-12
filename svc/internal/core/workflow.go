@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"time"
 )
 
 const (
@@ -43,14 +44,19 @@ func FindValidRunnerName(runnerLabels []string) (string, *app_error.AppError) {
 	return "", app_error.NewAppError(http.StatusNotFound, "No valid runner name found", nil)
 }
 
-func CompleteWorkflow(runId int64, repositoryInternalId int64) *app_error.AppError {
+func CompleteWorkflow(jobId int64, runId int64, runStatus string, repoId int64, endedAt time.Time) *app_error.AppError {
 	vm, err := models.FindEntity(models.VM{}, runId, "external_run_id")
 	if err != nil {
 		fmt.Println("Error:", err)
 		return app_error.NewAppError(http.StatusNotFound, "No valid runner was found", err)
 	}
-	vmModel := vm.(models.VM)
 
+	result := models.UpdateWorkflowJobRun(jobId, repoId, runStatus, endedAt)
+	if result.Error != nil {
+		fmt.Printf("could not update workflow job for : %d", jobId)
+	}
+
+	vmModel := vm.(models.VM)
 	args := []string{
 		"-n", vmModel.VMInstanceName,
 	}
@@ -63,7 +69,7 @@ func CompleteWorkflow(runId int64, repositoryInternalId int64) *app_error.AppErr
 		return app_error.NewAppError(http.StatusInternalServerError, "Failed to purge the VM", err)
 	}
 
-	result := models.FreeVM(&vmModel)
+	result = models.FreeVM(&vmModel)
 	if result.Error != nil {
 		return app_error.NewAppError(http.StatusInternalServerError, "Failed to free the VM", result.Error)
 	}

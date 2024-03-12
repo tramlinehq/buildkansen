@@ -44,13 +44,16 @@ type githubActionsWorkflowWebhookEvent struct {
 	} `json:"repositories"`
 	WorkflowJob struct {
 		ID              int64       `json:"id"`
+		Name            string      `json:"name"`
+		HtmlUrl         string      `json:"html_url"`
 		RunId           int64       `json:"run_id"`
 		WorkflowName    string      `json:"workflow_name"`
 		Status          string      `json:"status"`
 		Conclusion      string      `json:"conclusion"`
+		RunAttempt      int8        `json:"run_attempt"`
 		CreatedAt       time.Time   `json:"created_at"`
 		StartedAt       time.Time   `json:"started_at"`
-		CompletedAt     interface{} `json:"completed_at"`
+		CompletedAt     time.Time   `json:"completed_at"`
 		Labels          []string    `json:"labels"`
 		RunnerId        interface{} `json:"runner_id"`
 		RunnerName      interface{} `json:"runner_name"`
@@ -182,6 +185,8 @@ func GithubHook(c *gin.Context) {
 		return
 	}
 
+	workflowJob := response.WorkflowJob
+
 	switch response.Action {
 	case "queued":
 		fmt.Println("Processing the 'queued' workflow job...")
@@ -191,11 +196,22 @@ func GithubHook(c *gin.Context) {
 			response.Repository.HtmlUrl,
 			installationId,
 			runnerName,
-			response.WorkflowJob.RunId,
+			workflowJob.RunId,
+			workflowJob.WorkflowName,
+			workflowJob.Status,
+			workflowJob.ID,
+			workflowJob.Name,
+			workflowJob.HtmlUrl,
+			workflowJob.StartedAt,
 		).Process()
 	case "completed":
 		fmt.Println("Processing 'completed' workflow job...")
-		core.CompleteWorkflow(response.WorkflowJob.RunId, repository.InternalId)
+		core.CompleteWorkflow(
+			workflowJob.ID,
+			workflowJob.RunId,
+			workflowJob.Status,
+			repository.InternalId,
+			workflowJob.CompletedAt)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})

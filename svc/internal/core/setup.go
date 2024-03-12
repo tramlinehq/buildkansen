@@ -68,7 +68,7 @@ func CreateInstallation(userId int64, installationId int64) *app_error.AppError 
 }
 
 func HasUserAlreadyInstalled(user *models.User) bool {
-	installations, repositories := models.FetchInstallationsAndRepositories(user)
+	installations, repositories, _ := models.FetchDashboardData(user)
 	if len(installations) != 0 && len(repositories) != 0 {
 		return true
 	}

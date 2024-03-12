@@ -6,6 +6,7 @@ import (
 	"buildkansen/models"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -22,9 +23,21 @@ type Job struct {
 	InstallationId       int64
 	RunnerName           string
 	WorkflowRunId        int64
+	WorkflowRunName      string
+	WorkflowRunStatus    string
+	WorkflowJobId        int64
+	WorkflowJobName      string
+	WorkflowJobUrl       string
+	WorkflowJobStart     time.Time
 }
 
-func NewJob(accountLogin string, repositoryInternalId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
+func NewJob(accountLogin string,
+	repositoryInternalId int64, repositoryUrl string,
+	installationId int64,
+	runnerName string,
+	runId int64, runName string, runStatus string,
+	jobId int64, jobName string, jobUrl string, jobStart time.Time) *Job {
+
 	return &Job{
 		AccountLogin:         accountLogin,
 		RepositoryInternalId: repositoryInternalId,
@@ -32,6 +45,12 @@ func NewJob(accountLogin string, repositoryInternalId int64, repositoryUrl strin
 		InstallationId:       installationId,
 		RunnerName:           runnerName,
 		WorkflowRunId:        runId,
+		WorkflowRunName:      runName,
+		WorkflowRunStatus:    runStatus,
+		WorkflowJobId:        jobId,
+		WorkflowJobName:      jobName,
+		WorkflowJobUrl:       jobUrl,
+		WorkflowJobStart:     jobStart,
 	}
 }
 
@@ -78,6 +97,18 @@ func (job *Job) Execute(vmLock *models.VMLock) error {
 		return err
 	}
 	fmt.Printf("kicked off the %s script!", kickOffScript)
+
+	result = models.CreateWorkflowJobRun(job.WorkflowJobId,
+		job.WorkflowJobName,
+		job.WorkflowJobUrl,
+		job.WorkflowRunId,
+		job.WorkflowRunName,
+		job.WorkflowRunStatus,
+		job.RepositoryInternalId,
+		job.WorkflowJobStart)
+	if result.Error != nil {
+		fmt.Println("could not create a workflow job run: ", result.Error)
+	}
 
 	return nil
 }
