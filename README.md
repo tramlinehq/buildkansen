@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="art/buildkansen.png">
-    <img alt="the tramline logo" src="art/buildkansen.png">
+    <img alt="the tramline logo" src="art/buildkansen.png" width="200"">
   </picture>
 </p>
 
@@ -65,9 +65,17 @@ The image names are as follows:
 - `sonoma-base-md` is the base image that sets up the mac on first boot – SSH, keys etc.
 - `sonoma-runner-md` sets up tooling – homebrew, ruby, xcode etc.
 
-It follows – `<macOS version>-<purpose>-<size>`
+It follows `<macOS version>-<purpose>-<size>`
 
-Where sizes are `sm`, `md`, `lg` and `xl` for 100GB, 200GB, 300GB and 400GB respectively.
+| size | disk  | cpu | memory |
+|------|-------|-----|--------|
+| md   | 100gb | 4   | 4gb    |
+| lg   | 150gb | 6   | 6gb    |
+
+The same scheme is used for the GitHub runner labels as well, for example:
+
+- `tramline-macos-sonoma-md`
+- `tramline-macos-sonoma-lg`
 
 ## Deployment
 
