@@ -32,29 +32,40 @@ func ValidateWorkflow(installationId int64, repositoryId int64) (*models.Install
 	return &installation, repository, nil
 }
 
-func FindValidRunnerName(runnerLabels []string) (string, *app_error.AppError) {
+func FindValidRunnerName(runnerLabels []string) (string, bool) {
 	for _, label := range runnerLabels {
 		for _, runnerName := range config.C.ValidRunnerNames {
 			if label == runnerName {
-				return label, nil
+				return label, true
 			}
 		}
 	}
 
-	return "", app_error.NewAppError(http.StatusNotFound, "No valid runner name found", nil)
+	return "", false
 }
 
-func CompleteWorkflow(jobId int64, runId int64, runStatus string, repoId int64, endedAt time.Time) *app_error.AppError {
+func ProcessWorkflowRun(jobId int64, runStatus string, repoId int64) {
+	fmt.Printf("updating workflow job run for: %d with status: %s\n", jobId, runStatus)
+	result := models.ProcessWorkflowJobRun(jobId, repoId, runStatus)
+	if result.Error != nil {
+		fmt.Printf("could not update workflow job for : %d", jobId)
+	}
+}
+
+func CompleteWorkflow(jobId int64, runId int64, runStatus string, runConclusion string, repoId int64, endedAt time.Time) *app_error.AppError {
 	vm, err := models.FindEntity(models.VM{}, runId, "external_run_id")
 	if err != nil {
 		fmt.Println("Error:", err)
 		return app_error.NewAppError(http.StatusNotFound, "No valid runner was found", err)
 	}
 
-	result := models.UpdateWorkflowJobRun(jobId, repoId, runStatus, endedAt)
-	if result.Error != nil {
-		fmt.Printf("could not update workflow job for : %d", jobId)
-	}
+	go func() {
+		fmt.Printf("updating workflow job run for: %d with conclusion: %s, and status: %s\n", jobId, runConclusion, runStatus)
+		result := models.CompleteWorkflowJobRun(jobId, repoId, runStatus, runConclusion, endedAt)
+		if result.Error != nil {
+			fmt.Printf("could not update workflow job for : %d", jobId)
+		}
+	}()
 
 	vmModel := vm.(models.VM)
 	args := []string{
@@ -69,7 +80,7 @@ func CompleteWorkflow(jobId int64, runId int64, runStatus string, repoId int64, 
 		return app_error.NewAppError(http.StatusInternalServerError, "Failed to purge the VM", err)
 	}
 
-	result = models.FreeVM(&vmModel)
+	result := models.FreeVM(&vmModel)
 	if result.Error != nil {
 		return app_error.NewAppError(http.StatusInternalServerError, "Failed to free the VM", result.Error)
 	}

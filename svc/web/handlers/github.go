@@ -173,9 +173,9 @@ func GithubHook(c *gin.Context) {
 	}
 
 	fmt.Printf("Received a workflow job webhook: %s", response.Action)
-	runnerName, appError := core.FindValidRunnerName(response.WorkflowJob.Labels)
-	if appError != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": appError.Message})
+	runnerName, found := core.FindValidRunnerName(response.WorkflowJob.Labels)
+	if !found {
+		c.JSON(http.StatusAccepted, gin.H{})
 		return
 	}
 
@@ -199,17 +199,25 @@ func GithubHook(c *gin.Context) {
 			workflowJob.RunId,
 			workflowJob.WorkflowName,
 			workflowJob.Status,
+			workflowJob.Conclusion,
 			workflowJob.ID,
 			workflowJob.Name,
 			workflowJob.HtmlUrl,
 			workflowJob.StartedAt,
-		).Process()
+		).Enqueue()
+	case "in_progress":
+		fmt.Println("Processing the 'in_progress' workflow job...")
+		go core.ProcessWorkflowRun(
+			workflowJob.ID,
+			workflowJob.Status,
+			repository.InternalId)
 	case "completed":
 		fmt.Println("Processing 'completed' workflow job...")
-		core.CompleteWorkflow(
+		go core.CompleteWorkflow(
 			workflowJob.ID,
 			workflowJob.RunId,
 			workflowJob.Status,
+			workflowJob.Conclusion,
 			repository.InternalId,
 			workflowJob.CompletedAt)
 	}

@@ -28,7 +28,7 @@ const (
 
 func Run() {
 	r := gin.Default()
-	templates := template.Must(template.New("").ParseFS(emb, "views/*.html"))
+	templates := template.Must(template.New("").Funcs(templateFuncs()).ParseFS(emb, "views/*.html"))
 	r.SetHTMLTemplate(templates)
 	r.StaticFS("/public", http.FS(emb))
 
@@ -63,4 +63,12 @@ func initGithubAuth() {
 	goth.UseProviders(
 		github.New(config.C.GithubClientID, config.C.GithubClientSecret, config.C.GithubAuthRedirectUrl),
 	)
+}
+
+func templateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"inc": func(i int) int {
+			return i + 1
+		},
+	}
 }
