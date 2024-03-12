@@ -146,8 +146,8 @@ build {
   # provisioner "shell" {
   #   inline = [
   #     "source ~/.zprofile",
-  #     "asdf install ruby 3.2.2",
-  #     "asdf global ruby 3.2.2",
+  #     "asdf install ruby 3.2.3",
+  #     "asdf global ruby 3.2.3",
   #     "gem update --system",
   #   ]
   # }
@@ -156,7 +156,7 @@ build {
   provisioner "shell" {
     inline = [
       "source ~/.zprofile",
-      "brew install libimobiledevice ideviceinstaller ios-deploy fastlane carthage",
+      "brew install libimobiledevice ideviceinstaller ios-deploy carthage cocoapods",
       # "gem install cocoapods",
       # "gem uninstall --ignore-dependencies ffi && sudo gem install ffi -- --enable-libffi-alloc"
     ]
