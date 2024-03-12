@@ -14,12 +14,13 @@ func HandleHome(c *gin.Context) {
 
 	if exists {
 		user, _ := userValue.(models.User)
-		installations, repositories := models.FetchInstallationsAndRepositories(&user)
+		installations, repositories, runs := models.FetchDashboardData(&user)
 
 		headers := gin.H{
 			"user":          user,
 			"installations": installations,
 			"repositories":  repositories,
+			"runs":          runs,
 			"runnerLabels":  config.C.ValidRunnerNames,
 		}
 

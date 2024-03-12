@@ -44,13 +44,16 @@ type githubActionsWorkflowWebhookEvent struct {
 	} `json:"repositories"`
 	WorkflowJob struct {
 		ID              int64       `json:"id"`
+		Name            string      `json:"name"`
+		HtmlUrl         string      `json:"html_url"`
 		RunId           int64       `json:"run_id"`
 		WorkflowName    string      `json:"workflow_name"`
 		Status          string      `json:"status"`
 		Conclusion      string      `json:"conclusion"`
+		RunAttempt      int8        `json:"run_attempt"`
 		CreatedAt       time.Time   `json:"created_at"`
 		StartedAt       time.Time   `json:"started_at"`
-		CompletedAt     interface{} `json:"completed_at"`
+		CompletedAt     time.Time   `json:"completed_at"`
 		Labels          []string    `json:"labels"`
 		RunnerId        interface{} `json:"runner_id"`
 		RunnerName      interface{} `json:"runner_name"`
@@ -170,9 +173,9 @@ func GithubHook(c *gin.Context) {
 	}
 
 	fmt.Printf("Received a workflow job webhook: %s", response.Action)
-	runnerName, appError := core.FindValidRunnerName(response.WorkflowJob.Labels)
-	if appError != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": appError.Message})
+	runnerName, found := core.FindValidRunnerName(response.WorkflowJob.Labels)
+	if !found {
+		c.JSON(http.StatusAccepted, gin.H{})
 		return
 	}
 
@@ -181,6 +184,8 @@ func GithubHook(c *gin.Context) {
 		c.JSON(appError.Code, gin.H{"error": appError.Message})
 		return
 	}
+
+	workflowJob := response.WorkflowJob
 
 	switch response.Action {
 	case "queued":
@@ -191,11 +196,30 @@ func GithubHook(c *gin.Context) {
 			response.Repository.HtmlUrl,
 			installationId,
 			runnerName,
-			response.WorkflowJob.RunId,
-		).Process()
+			workflowJob.RunId,
+			workflowJob.WorkflowName,
+			workflowJob.Status,
+			workflowJob.Conclusion,
+			workflowJob.ID,
+			workflowJob.Name,
+			workflowJob.HtmlUrl,
+			workflowJob.StartedAt,
+		).Enqueue()
+	case "in_progress":
+		fmt.Println("Processing the 'in_progress' workflow job...")
+		go core.ProcessWorkflowRun(
+			workflowJob.ID,
+			workflowJob.Status,
+			repository.InternalId)
 	case "completed":
 		fmt.Println("Processing 'completed' workflow job...")
-		core.CompleteWorkflow(response.WorkflowJob.RunId, repository.InternalId)
+		go core.CompleteWorkflow(
+			workflowJob.ID,
+			workflowJob.RunId,
+			workflowJob.Status,
+			workflowJob.Conclusion,
+			repository.InternalId,
+			workflowJob.CompletedAt)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "success"})

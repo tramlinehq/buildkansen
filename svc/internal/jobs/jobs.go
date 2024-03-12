@@ -6,6 +6,7 @@ import (
 	"buildkansen/models"
 	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -16,26 +17,48 @@ const (
 )
 
 type Job struct {
-	AccountLogin         string
-	RepositoryInternalId int64
-	RepositoryUrl        string
-	InstallationId       int64
-	RunnerName           string
-	WorkflowRunId        int64
+	AccountLogin          string
+	RepositoryInternalId  int64
+	RepositoryUrl         string
+	InstallationId        int64
+	RunnerName            string
+	WorkflowRunId         int64
+	WorkflowRunName       string
+	WorkflowRunStatus     string
+	WorkflowRunConclusion string
+	WorkflowJobId         int64
+	WorkflowJobName       string
+	WorkflowJobUrl        string
+	WorkflowJobStart      time.Time
 }
 
-func NewJob(accountLogin string, repositoryInternalId int64, repositoryUrl string, installationId int64, runnerName string, runId int64) *Job {
+func NewJob(accountLogin string,
+	repositoryInternalId int64, repositoryUrl string,
+	installationId int64,
+	runnerName string,
+	runId int64, runName string, runStatus string, runConclusion string,
+	jobId int64, jobName string, jobUrl string, jobStart time.Time) *Job {
+
 	return &Job{
-		AccountLogin:         accountLogin,
-		RepositoryInternalId: repositoryInternalId,
-		RepositoryUrl:        repositoryUrl,
-		InstallationId:       installationId,
-		RunnerName:           runnerName,
-		WorkflowRunId:        runId,
+		AccountLogin:          accountLogin,
+		RepositoryInternalId:  repositoryInternalId,
+		RepositoryUrl:         repositoryUrl,
+		InstallationId:        installationId,
+		RunnerName:            runnerName,
+		WorkflowRunId:         runId,
+		WorkflowRunName:       runName,
+		WorkflowRunStatus:     runStatus,
+		WorkflowRunConclusion: runConclusion,
+		WorkflowJobId:         jobId,
+		WorkflowJobName:       jobName,
+		WorkflowJobUrl:        jobUrl,
+		WorkflowJobStart:      jobStart,
 	}
 }
 
-func (job *Job) Process() {
+func (job *Job) Enqueue() {
+	go job.createWorkflowJobRun()
+	fmt.Printf("enqueuing job: %d\n", job.WorkflowJobId)
 	jobQueueManager.enqueueJob(*job)
 }
 
@@ -78,6 +101,30 @@ func (job *Job) Execute(vmLock *models.VMLock) error {
 		return err
 	}
 	fmt.Printf("kicked off the %s script!", kickOffScript)
+	go job.kickoffWorkflowJobRun()
 
 	return nil
+}
+
+func (job *Job) createWorkflowJobRun() {
+	result := models.CreateWorkflowJobRun(job.WorkflowJobId,
+		job.WorkflowJobName,
+		job.WorkflowJobUrl,
+		job.WorkflowRunId,
+		job.WorkflowRunName,
+		job.WorkflowRunStatus,
+		job.RepositoryInternalId,
+		job.WorkflowJobStart)
+
+	if result.Error != nil {
+		fmt.Println("could not create a workflow job run: ", result.Error)
+	}
+}
+
+func (job *Job) kickoffWorkflowJobRun() {
+	result := models.KickoffWorkflowJobRun(job.WorkflowJobId, job.RepositoryInternalId)
+
+	if result.Error != nil {
+		fmt.Println("could not mark workflow job run started: ", result.Error)
+	}
 }
