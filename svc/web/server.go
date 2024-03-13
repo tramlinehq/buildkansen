@@ -38,6 +38,7 @@ func Run() {
 
 	r.GET("/", mw.SetEnv(), mw.SetUserFromSessionMiddleware(), HandleHome)
 	r.GET("/logout", mw.SetEnv(), HandleLogout)
+	r.POST("/account/destroy", mw.SetEnv(), mw.SetUserFromSessionMiddleware(), HandleAccountDestroy)
 	r.GET("/github/auth", mw.SetEnv(), mw.InjectGithubProvider(), GithubAuth)
 	r.GET("/github/auth/register", mw.SetEnv(), mw.InjectGithubProvider(), GithubAuthCallback)
 	r.GET("/github/apps/register", mw.SetEnv(), mw.InjectGithubProvider(), mw.SetUserFromSessionMiddleware(), GithubAppsCallback)

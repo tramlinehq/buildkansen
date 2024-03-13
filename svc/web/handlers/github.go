@@ -101,7 +101,7 @@ func GithubAuthCallback(c *gin.Context) {
 		return
 	}
 
-	c.Redirect(http.StatusFound, installationUrl())
+	c.Redirect(http.StatusFound, InstallationUrl())
 }
 
 func GithubAppsCallback(c *gin.Context) {
@@ -225,7 +225,7 @@ func GithubHook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
-func installationUrl() string {
+func InstallationUrl() string {
 	u := &url.URL{
 		Scheme: "https",
 		Host:   "github.com",

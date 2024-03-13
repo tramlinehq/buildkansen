@@ -14,14 +14,16 @@ func HandleHome(c *gin.Context) {
 
 	if exists {
 		user, _ := userValue.(models.User)
-		installations, repositories, runs := models.FetchDashboardData(&user)
+		installations, repositories, runs := models.FetchUserData(&user)
 
 		headers := gin.H{
-			"user":          user,
-			"installations": installations,
-			"repositories":  repositories,
-			"runs":          runs,
-			"runnerLabels":  config.C.ValidRunnerNames,
+			"user":            user,
+			"dataAvailable":   haveAvailableInstallationData(installations, repositories),
+			"installationUrl": InstallationUrl(),
+			"installations":   installations,
+			"repositories":    repositories,
+			"runs":            runs,
+			"runnerLabels":    config.C.ValidRunnerNames,
 		}
 
 		c.HTML(http.StatusOK, "index.html", headers)
@@ -30,10 +32,34 @@ func HandleHome(c *gin.Context) {
 	}
 }
 
+func haveAvailableInstallationData(installations []models.Installation, repositories []models.Repository) bool {
+	if len(installations) == 0 && len(repositories) == 0 {
+		return false
+	}
+
+	return true
+}
+
 func HandleLogout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Delete(config.C.AuthorizedUserInSessionKey)
 	_ = session.Save()
+
+	c.Redirect(http.StatusFound, "/")
+}
+
+func HandleAccountDestroy(c *gin.Context) {
+	userValue, exists := c.Get("user")
+
+	if exists {
+		user, _ := userValue.(models.User)
+		err := models.DestroyUserData(&user)
+
+		if err != nil {
+			c.String(http.StatusNotFound, "Failed to destroy user data")
+			return
+		}
+	}
 
 	c.Redirect(http.StatusFound, "/")
 }

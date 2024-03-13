@@ -4,6 +4,7 @@ import (
 	"buildkansen/db"
 	"buildkansen/log"
 	"database/sql"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -17,7 +18,7 @@ type User struct {
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 	DeletedAt     time.Time
-	Installations []Installation `gorm:"foreignKey:UserId"`
+	Installations []Installation `gorm:"foreignKey:UserId;constraint:OnDelete:CASCADE"`
 }
 
 type Installation struct {
@@ -29,7 +30,7 @@ type Installation struct {
 	AccountAvatarUrl string
 	UserId           int64        `gorm:"index:idx_uniq_installation,unique"`
 	User             User         `gorm:"foreignKey:UserId;references:Id"`
-	Repositories     []Repository `gorm:"foreignKey:InstallationId"`
+	Repositories     []Repository `gorm:"foreignKey:InstallationId;constraint:OnDelete:CASCADE"`
 	CreatedAt        time.Time    `gorm:"autoCreateTime"`
 	UpdatedAt        time.Time    `gorm:"autoUpdateTime"`
 	DeletedAt        time.Time
@@ -43,7 +44,7 @@ type Repository struct {
 	Private         bool
 	InstallationId  int64            `gorm:"index:idx_uniq_repository,unique"`
 	Installation    Installation     `gorm:"foreignKey:InstallationId;references:InternalId"`
-	WorkflowJobRuns []WorkflowJobRun `gorm:"foreignKey:RepositoryId"`
+	WorkflowJobRuns []WorkflowJobRun `gorm:"foreignKey:RepositoryId;constraint:OnDelete:CASCADE"`
 	CreatedAt       time.Time        `gorm:"autoCreateTime"`
 	UpdatedAt       time.Time        `gorm:"autoUpdateTime"`
 	DeletedAt       time.Time
@@ -132,7 +133,7 @@ func FindRepositoryByInstallation(installationId int64, repositoryId int64) (*Re
 	return &repository, nil
 }
 
-func FetchDashboardData(user *User) ([]Installation, []Repository, []WorkflowJobRun) {
+func FetchUserData(user *User) ([]Installation, []Repository, []WorkflowJobRun) {
 	db.DB.Preload("Installations.Repositories.WorkflowJobRuns", func(db *gorm.DB) *gorm.DB {
 		return db.Order("workflow_job_runs.created_at DESC").Limit(20)
 	}).Preload("Installations.Repositories.WorkflowJobRuns.Repository").Preload(clause.Associations).First(&user, user.Id)
@@ -169,6 +170,15 @@ func FetchDashboardData(user *User) ([]Installation, []Repository, []WorkflowJob
 	}
 
 	return user.Installations, repositories, runs
+}
+
+func DestroyUserData(user *User) error {
+	result := db.DB.Delete(&user) // we cascade delete all related data
+	if result.Error != nil {
+		return errors.New("failed to destroy user data")
+	}
+
+	return nil
 }
 
 func UpsertUser(id int64, name string, email string) (*gorm.DB, User) {
