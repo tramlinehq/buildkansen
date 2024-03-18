@@ -150,13 +150,12 @@ func FetchUserData(user *User) ([]Installation, []Repository, []WorkflowJobRun) 
 				if workflowJobRun.ProcessingAt.Valid {
 					queueTime = workflowJobRun.ProcessingAt.Time.Sub(workflowJobRun.StartedAt)
 					processingAt := workflowJobRun.ProcessingAt.Time
+					startedAt := workflowJobRun.StartedAt
 
 					if workflowJobRun.EndedAt.Valid {
-						// job has ended
-						executionTime = workflowJobRun.EndedAt.Time.Sub(processingAt)
+						executionTime = workflowJobRun.EndedAt.Time.Sub(startedAt) // job has ended
 					} else {
-						// job is still running
-						executionTime = time.Now().Sub(processingAt)
+						executionTime = time.Now().Sub(processingAt) // job is still running
 					}
 				} else {
 					queueTime = time.Now().Sub(workflowJobRun.StartedAt)
