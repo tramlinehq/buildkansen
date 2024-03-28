@@ -24,6 +24,7 @@ func HandleHome(c *gin.Context) {
 			"repositories":    repositories,
 			"runs":            runs,
 			"runnerLabels":    config.C.ValidRunnerNames,
+			"isProduction":    isProduction.(bool),
 		}
 
 		c.HTML(http.StatusOK, "index.html", headers)
