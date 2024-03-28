@@ -13,6 +13,35 @@
     <link rel="mask-icon" href="/public/assets/safari-pinned-tab.svg" color="#5bbad5">
     <meta name="msapplication-TileColor" content="#da532c">
     <meta name="theme-color" content="#ffffff">
+    {{if .isProduction}}
+    <script>
+        let scriptElem = document.createElement("script");
+        let s = document.getElementsByTagName("script")[0];
+        let BASE_URL = "https://app.saturnhq.io";
+        scriptElem.src = BASE_URL + "/assets/sdk.js";
+        scriptElem.defer = true;
+        scriptElem.async = true;
+        s.parentNode.insertBefore(scriptElem, s);
+        scriptElem.onload = function () { window.saturnSDK.run({integrationId: "tramline",});};
+    </script>
+    <script>
+        const userData = {uid: "{{.user.Id}}", email: "{{.user.Email}}", name: "{{.user.Name}}"}
+
+        if (window?.$saturn && window?.$saturn?.isLoaded) {
+            window.$saturn.setUser(userData.uid, {email: userData.email, name: userData.name,});
+        } else {
+            window.addEventListener(
+                "saturn:ready",
+                function () {
+                    if (userData) {
+                        window.$saturn.setUser(userData.uid, {email: userData.email, name: userData.name,});
+                    }
+                },
+                { once: true }
+            );
+        }
+    </script>
+    {{end}}
 </head>
 
 <body>
