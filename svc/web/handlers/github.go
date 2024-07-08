@@ -117,6 +117,11 @@ func GithubAppsCallback(c *gin.Context) {
 		return
 	}
 
+	if queryParams.Get("setup_action") == "request" {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+
 	installationId, err := strconv.ParseInt(queryParams.Get("installation_id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse installation id"})
