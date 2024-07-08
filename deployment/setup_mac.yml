@@ -2,7 +2,7 @@
 - name: Setup Mac Mini
   hosts: macmini
   vars:
-    release_version: v0.2.3
+    release_version: v0.2.4
 
   tasks:
     - community.general.homebrew:
